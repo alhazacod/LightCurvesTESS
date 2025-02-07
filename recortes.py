@@ -54,6 +54,7 @@ def cortarImagen():
 def borrarImagen(file_path):
     """
     Borra el archivo FITS indicado por file_path.
+    (la imagén descargada inicialmente)
     
     Parámetros:
         file_path (str): Ruta del archivo a borrar.

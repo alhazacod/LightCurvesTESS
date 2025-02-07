@@ -1,5 +1,31 @@
 import os
 import subprocess
+import os
+import subprocess
+import glob
+
+def contar_fits():
+    """
+    Cuenta cuántos archivos .fits hay en el directorio './imagenes_cortadas'.
+    """
+    return len(glob.glob("./imagenes_cortadas/*.fits"))
+
+
+def ejecutar_consultas():
+    """
+    Ejecuta directamente el script de Python 'consultas.py' en lugar del script de Bash.
+    """
+    print("Límite de imágenes alcanzado, ejecutando solo consultas.py...")
+    try:
+        result = subprocess.run(["python3", "consultas.py"],
+                                capture_output=True, text=True, check=True)
+        print("El script recortes.py se ejecutó correctamente.")
+        print("Salida estándar:")
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print("Error al ejecutar recortes.py:")
+        print(e.stderr)
+
 def mover_fits():
     """
     Ejecuta el comando find para mover todos los archivos .fits al directorio "ImagenesSinCortar".
@@ -87,16 +113,25 @@ def almacenarScript(ruta_archivo, ruta_archivo_nuevo):
         # Después de la segunda línea (índice 1) se añade "python3 hola.py"
         if i != 0:
             lineas_procesadas.append("python3 recortes.py\n")  
+        else :
+            lineas_procesadas.append("python3 consultas.py\n")  
     # Guardar el contenido modificado en el nuevo archivo
     with open(ruta_archivo_nuevo, 'w', encoding='utf-8') as nuevo_archivo:
         nuevo_archivo.writelines(lineas_procesadas)
     
     return lineas_procesadas
 # Ejecutar la función al correr el script
+ 
+
 if __name__ == "__main__":
-    archivo_original = "./bash_scripts/comandosCurl"           # Archivo original
-    archivo_nuevo = "./bash_scripts/comandosCurl_modificado.sh"  # Archivo nuevo a generar
-    almacenarScript(archivo_original, archivo_nuevo)
-    aplicar_chmod()
-    ejecutar_script_bash("./bash_scripts/comandosCurl_modificado.sh")
+    if contar_fits() >= 27:
+        ejecutar_consultas()
+    else:
+        ejecutar_consultas()
+        ejecutar_script_bash("./bash_scripts/comandosCurl_modificado.sh")
+        archivo_original = "./bash_scripts/comandosCurl"           # Archivo original
+        archivo_nuevo = "./bash_scripts/comandosCurl_modificado.sh"  # Archivo nuevo a generar
+        almacenarScript(archivo_original, archivo_nuevo)
+        aplicar_chmod()
+        ejecutar_script_bash("./bash_scripts/comandosCurl_modificado.sh")
 
