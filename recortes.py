@@ -2,6 +2,7 @@ import os
 import glob
 import shutil
 from astrocut import fits_cut
+from astroquery.simbad import Simbad
 from astropy.coordinates import SkyCoord
 from astrocut.exceptions import InvalidQueryError
 
@@ -14,8 +15,10 @@ def cortarImagen():
         return None
 
     input_file = fits_files[0]
-
-    center_coord = SkyCoord("47.0422185563 40.9556466703", unit="deg")
+    result = Simbad.query_object(name)
+    ra = result['ra'][0]  # RA en formato horas y minutos
+    dec = result['dec'][0]  # DEC en grados
+    center_coord = SkyCoord("{ra} {dec}", unit="deg")
     cutout_size = [100, 100]
 
     try:
