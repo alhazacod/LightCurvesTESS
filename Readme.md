@@ -6,7 +6,7 @@
 Este código recorta, una por una, las imágenes tomadas por TESS, enfocándolas en una estrella específica (si se encuentra una coincidencia) definida por sus coordenadas de **RA** y **DE**, evitando así la descarga del sector completo.
 
 <h2>Proceso de Ejecución</h2>
-  1. ## Generación del script de descarga y procesamiento:</h3>
+  1. ## Generación del script de descarga y procesamiento:
      - Se ejecuta el código `comandos.py`,
      -  el cual genera un script de **Bash** que automatiza la descarga de cada imagen y ejecuta el código para recortarla y eliminar la imagen original.  
      - La estrella de interés está definida en `recortes.py`.  
