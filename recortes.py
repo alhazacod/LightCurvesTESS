@@ -5,11 +5,10 @@ from astrocut import fits_cut
 from astroquery.simbad import Simbad
 from astropy.coordinates import SkyCoord
 from astrocut.exceptions import InvalidQueryError
-
 import uuid  # For generating unique filenames
-
-def cortarImagen():
-    fits_files = glob.glob("./*.fits")
+route = "./"
+def cortarImagen(name):
+    fits_files = glob.glob(f"{route}*.fits")
     if not fits_files:
         print("No se ha encontrado ninguna imagen FITS")
         return None
@@ -32,7 +31,7 @@ def cortarImagen():
 
     print("Se encontró un match, realizando recorte")
     
-    dest_dir = "./imagenes_cortadas"
+    dest_dir = f"{route}imagenes_cortadas"
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
 
@@ -70,5 +69,6 @@ def borrarImagen(file_path):
 
 # Ejemplo de uso:
 if __name__ == "__main__":
-   cortarImagen()
+   name = "algol"
+   cortarImagen(name)
 

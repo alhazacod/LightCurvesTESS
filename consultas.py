@@ -20,7 +20,7 @@ def get_coordinates_from_name(name):
     dec_dms = Angle(dec, unit=u.deg).to_string(unit=u.deg, sep=':', precision=6, alwayssign=True)
     coordinates = {'recta ascencion':ra,'declinacion':dec,'ra_hms':ra_hms,'dec_dms':dec_dms} #diccionario conteniendolo todo 
     return(coordinates)
-def query_gaia(coords, radius_arcmin=2):
+def query_gaia(coords, radius_arcmin=10):
 
     """
     Consulta Gaia para obtener los objetos alrededor de las coordenadas dadas.

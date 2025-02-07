@@ -3,12 +3,12 @@ import subprocess
 import os
 import subprocess
 import glob
-
+route = "./"
 def contar_fits():
     """
     Cuenta cuántos archivos .fits hay en el directorio './imagenes_cortadas'.
     """
-    return len(glob.glob("./imagenes_cortadas/*.fits"))
+    return len(glob.glob(f"{route}imagenes_cortadas/*.fits"))
 
 
 def ejecutar_consultas():
@@ -35,7 +35,9 @@ def mover_fits():
 
     Se utiliza shell=True para que se interprete correctamente la cadena del comando.
     """
-    comando = "find . -type f -name '*.fits' -exec mv {} \"./imagenes_cortadas\" \\;"
+    
+    comando = f"find {route} -type f -name '*.fits' -exec mv {{}} \"{route}imagenes_cortadas\" \\;"
+
     print("moviendo las imagenes descargadas")
     resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
 
@@ -72,7 +74,7 @@ def aplicar_chmod():
     Ejecuta el comando 'chmod +x ./bash_scripts/comandosCurl_modificado.sh'
     para asignar permisos de ejecución al archivo.
     """
-    comando = ["chmod", "+x", "./bash_scripts/comandosCurl_modificado.sh"]
+    comando = ["chmod", "+x", f"{route}bash_scripts/comandosCurl_modificado.sh"]
     resultado = subprocess.run(comando, capture_output=True, text=True)
     
     if resultado.returncode != 0:
@@ -128,10 +130,10 @@ if __name__ == "__main__":
         ejecutar_consultas()
     else:
         ejecutar_consultas()
-        ejecutar_script_bash("./bash_scripts/comandosCurl_modificado.sh")
-        archivo_original = "./bash_scripts/comandosCurl"           # Archivo original
-        archivo_nuevo = "./bash_scripts/comandosCurl_modificado.sh"  # Archivo nuevo a generar
+        ejecutar_script_bash(f"{route}bash_scripts/comandosCurl_modificado.sh")
+        archivo_original = f"{route}bash_scripts/comandosCurl"           # Archivo original
+        archivo_nuevo = f"{route}bash_scripts/comandosCurl_modificado.sh"  # Archivo nuevo a generar
         almacenarScript(archivo_original, archivo_nuevo)
         aplicar_chmod()
-        ejecutar_script_bash("./bash_scripts/comandosCurl_modificado.sh")
+        ejecutar_script_bash(f"{route}bash_scripts/comandosCurl_modificado.sh")
 
