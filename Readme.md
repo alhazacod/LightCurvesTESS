@@ -9,10 +9,11 @@ Este código recorta, una por una, las imágenes tomadas por TESS, enfocándolas
   
   1. ## Generación del script de descarga y procesamiento:
      - Se ejecuta el código `main.py`,
-     -  Dependiendo si la canitdad de imagenes recortadas ya es mayor o igual que n(definido en main.py) (un sector) se ejecutan los GET request si no se cumple la condición segenera un script de Bash que automatiza la descarga de cada imagen y ejecuta el código para recortarla y eliminar la imagen original.  
+     -  Cada vez que se ejecuta el script se borra el progreso realizado anteriormente.
      - Se ejecuta la busqueda del catalogo de gaia3
      - La estrella de interés está definida en `recortes.py`.  
-     (se debe interrumír el codigo la primera vez ya que el catalogo es demasiado grande, se esta trabajando en crear un limitador para el .sh al alcanzar el numero de imagenes deseadas)
+
+  
 
   2. ## Procesamiento de las imágenes:
      - Si las coordenadas de la estrella coinciden con una imagen descargada, se genera un recorte y se guarda en la carpeta `imagenes_guardadas`.  
@@ -20,18 +21,20 @@ Este código recorta, una por una, las imágenes tomadas por TESS, enfocándolas
 
  3. ## Catalogo Gaia:
      - Se hace un llamadao al catalogo de gaia3 con simbad con ayuda del codigo de un compañero, el csv se guarda según un radio en arcominutos encontrando objetos circundantes. 
-  
+ 4. ## Fotometria y datos:
+     - Luego de tener las los recortes de las imagenes y el catalogo de gaia3 en un archivo csv se ejecuta el archivo fot.py que analiza los recortes generados y los compara con los objetos cercanos a la estrella predefinida, en este caso algol
+     -Al realizar esto para cada imagén recortada se genera un archivo csv por imagén que contiene los match entre los elementos de la foto y el catalogo de gaia3. Esto se realiza para cada recorte! 
 
- 4. ## Requisitos previos:
+ 5. ## Requisitos previos:
      - Solo es necesario contar con el archivo de texto `comandosCurl`, el cual contiene los comandos necesarios para descargar el sector.  
      - El resto del código se ejecutará automáticamente sin intervención adicional.  Se puede acceder a este en: https://archive.stsci.edu/tess/bulk_downloads/bulk_downloads_ffi-tp-lc-dv.html 
      
- 5. ## Dependencias necesarias:
+ 6. ## Dependencias necesarias:
      - Se deben instalar las librerías **astrocut** y astropy.  
      - También se utilizan las librerías **shutil, glob, os y subprocess**, principalmente para ejecutar scripts de **Bash** desde Python y para la gestión de archivos.  
 
 ---
-6. ## Explicación de los diferentes scripts:
+7. ## Explicación de los diferentes scripts:
    1.consultas.py Genera una consulta al catalogo de gaia3edr para saber que objetos circundantes hay alrededor de una estrella definida en un radio de 10 arcmin luego guarda los datos en un archivo.csv
    2.recortes.py Realiza un recorte a cualquier imagén .fits que encuentre dentro del directorio local, guardando la imagén recortada en un directorio especifico y borrando la imagén original.
    3.consultas.py Ejecuta los comandos de curl para descargar cada imagén del sector escogido, además modifica el archivo.sh incluyendo la ejecución de recortes.py justo después de cada descarga automatizando el proceso de descarga sin necesidad de descargar todas las imagenes del sector.

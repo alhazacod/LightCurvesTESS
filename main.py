@@ -6,7 +6,6 @@ import shutil
 # Variable global para la ruta principal de la organización de carpetas
 route = "./"
 
-
 def contar_fits():
     """
     Cuenta cuántos archivos .fits hay en el directorio 'route/imagenes_cortadas'.
@@ -15,44 +14,31 @@ def contar_fits():
 
 def ejecutar_consultas():
     """
-    Ejecuta directamente el script de Python 'consultas.py' (ubicado en la carpeta python_scripts)
-    en lugar del script de Bash.
+    Ejecuta directamente el script de Python 'consultas.py' (ubicado en la carpeta principal)
     """
-
     try:
-        result = subprocess.run(["python3", route + "consultas.py"],
-                                capture_output=True, text=True, check=True)
-        print("El script recortes.py se ejecutó correctamente.")
-        print("Salida estándar:")
-        print(result.stdout)
+        subprocess.run(["python3", route + "consultas.py"], check=True)
+        print("El script consultas.py se ejecutó correctamente.")
     except subprocess.CalledProcessError as e:
-        print("Error al ejecutar recortes.py:")
-        print(e.stderr)
+        print("Error al ejecutar consultas.py:")
+        print(e)
+
 def ejecutar_fotometria():
     """
-    Ejecuta directamente el script de Python 'consultas.py' y phot.py (ubicado en la carpeta python_scripts)
-    en lugar del script de Bash.
+    Ejecuta directamente los scripts 'consultas.py' y 'phot.py' para proceder con la fotometría.
     """
-    print("se ha alcanzado el limite de recortes, se procede a realizar la fotometría de cada uno")
+    print("Se ha alcanzado el límite de recortes, se procede a realizar la fotometría.")
     ejecutar_consultas()
     try:
-        result = subprocess.run(["python3", route + "phot.py"],
-                                capture_output=True, text=True, check=True)
-        print("El script recortes.py se ejecutó correctamente.")
-        print("Salida estándar:")
-        print(result.stdout)
+        subprocess.run(["python3", route + "phot.py"], check=True)
+        print("El script phot.py se ejecutó correctamente.")
     except subprocess.CalledProcessError as e:
-        print("Error al ejecutar recortes.py:")
-        print(e.stderr)
+        print("Error al ejecutar phot.py:")
+        print(e)
 
 def mover_fits():
     """
     Ejecuta el comando find para mover todos los archivos .fits al directorio 'route/imagenes_cortadas'.
-
-    El comando utilizado es:
-      find {route} -type f -name '*.fits' -exec mv {} "{route}imagenes_cortadas" \;
-
-    Se utiliza shell=True para que se interprete correctamente la cadena del comando.
     """
     comando = f"find {route} -type f -name '*.fits' -exec mv {{}} \"{route}imagenes_cortadas\" \\;"
     print("Moviendo las imágenes descargadas...")
@@ -65,23 +51,16 @@ def mover_fits():
 
 def ejecutar_script_bash(script_path):
     """
-    Ejecuta el script bash especificado en 'script_path' y muestra la salida.
-    
-    Parámetros:
-      - script_path (str): La ruta del script bash que se desea ejecutar.
+    Ejecuta el script Bash especificado en 'script_path' y muestra la salida en tiempo real.
     
     Se asume que el script tiene permisos de ejecución. Si no es así, se fuerza su ejecución mediante bash.
     """
-    print("Iniciando Descargas")
+    print("Iniciando Descargas desde el script Bash...")
     try:
-        result = subprocess.run(["bash", script_path],
-                                capture_output=True, text=True, check=True)
-        print("El script se ejecutó correctamente.")
-        print("Salida estándar:")
-        print(result.stdout)
+        subprocess.run(["bash", script_path], check=True)
     except subprocess.CalledProcessError as e:
-        print("Error al ejecutar el script:")
-        print(e.stderr)
+        print("Error al ejecutar el script Bash:")
+        print(e)
 
 def aplicar_chmod():
     """
@@ -100,11 +79,17 @@ def almacenarScript(ruta_archivo, ruta_archivo_nuevo):
     Lee el archivo especificado en 'ruta_archivo' y crea un nuevo archivo en 'ruta_archivo_nuevo'
     con las siguientes modificaciones:
       1. Si el archivo nuevo existe, se borra antes de crearlo.
-      2. Se copia cada línea del archivo original.
-         - Después de la primera línea (índice 0) se añade "python3 consultas.py"
-           y después de la segunda línea (índice 1) se añade "python3 recortes.py".
-      3. Al final del archivo se añade la línea:
-         find . -name '*.fits' -mv "{route}ImagenesSinCortar"
+      2. Se inserta AL INICIO (después del shebang, si existe) la línea que ejecuta el script de limpieza
+         (ubicado en "./bash_scripts/limpieza.sh") y se inicializan las variables:
+            counter=0
+            threshold=<valor deseado>
+      3. Luego, para cada línea del archivo original se copia la línea y se añade la ejecución del comando:
+         - En la primera línea se añade "python3 consultas.py".
+         - En las siguientes se añade "python3 recortes.py".
+      4. Inmediatamente después de cada comando se inserta un bloque que:
+            - Incrementa el contador (o, alternativamente, vuelve a contar los archivos en imagenes_cortadas).
+            - Imprime el progreso en el formato "Progress: $current/[threshold] images downloaded".
+            - Si el número actual de archivos alcanza o supera el umbral, imprime un mensaje y ejecuta exit 0.
     
     Retorna:
         list: Una lista con las líneas procesadas.
@@ -117,13 +102,44 @@ def almacenarScript(ruta_archivo, ruta_archivo_nuevo):
     with open(ruta_archivo, 'r', encoding='utf-8') as archivo:
         lineas = archivo.readlines()
     
-    for i, linea in enumerate(lineas):
+    # Definir el umbral (threshold) de archivos .fits en la carpeta imagenes_cortadas
+    threshold = 5  # Modifica este valor según sea necesario
+    
+    # Bloque único al inicio: Si existe un shebang, conservarlo
+    if lineas and lineas[0].startswith("#!"):
+        lineas_procesadas.append(lineas[0])
+        rest_lines = lineas[1:]
+    else:
+        rest_lines = lineas
+    
+    # Inserción única: llamada al script de limpieza y la inicialización de variables
+    lineas_procesadas.append("bash ./bash_scripts/limpieza.sh\n")
+    lineas_procesadas.append("counter=0\n")
+    lineas_procesadas.append("threshold=" + str(threshold) + "\n")
+    
+    # Para cada línea restante del archivo original
+    for i, linea in enumerate(rest_lines):
         linea = linea.rstrip("\n")
+        # Agregar la línea original (por ejemplo, el comando curl)
         lineas_procesadas.append(linea + "\n")
-        if i != 0:
-            lineas_procesadas.append("recortes.py\n")
-        else:
+        
+        # Inserción de la ejecución del comando deseado según la posición:
+        if i == 0:
             lineas_procesadas.append("python3 consultas.py\n")
+        else:
+            lineas_procesadas.append("python3 recortes.py\n")
+        
+        # Bloque para actualizar el progreso basado en la cantidad de archivos .fits en imagenes_cortadas:
+        # Aquí se vuelve a contar los archivos en lugar de usar un contador interno, para reflejar el estado real.
+        progress_block = [
+            'current=$(find ' + route + 'imagenes_cortadas -maxdepth 1 -type f -name "*.fits" | wc -l)\n',
+            'echo "Progress: $current/' + str(threshold) + ' images downloaded."\n',
+            'if [ $current -ge ' + str(threshold) + ' ]; then\n',
+            '    echo "Threshold reached. Exiting script."\n',
+            '    exit 0\n',
+            'fi\n'
+        ]
+        lineas_procesadas.extend(progress_block)
     
     with open(ruta_archivo_nuevo, 'w', encoding='utf-8') as nuevo_archivo:
         nuevo_archivo.writelines(lineas_procesadas)
@@ -132,14 +148,15 @@ def almacenarScript(ruta_archivo, ruta_archivo_nuevo):
 
 # Bloque principal: se usan las rutas construidas a partir de la variable global 'route'
 if __name__ == "__main__":
-    if contar_fits() >= 3:
-        ejecutar_fotometria()
-
-    else:
+    
+        # Primero se ejecuta consultas.py (opcional, según tu flujo)
         ejecutar_consultas()
-        ejecutar_script_bash(route + "bash_scripts/comandosCurl_modificado.sh")
+        # Generar el script modificado a partir del original
         archivo_original = route + "bash_scripts/comandosCurl"           # Archivo original
         archivo_nuevo = route + "bash_scripts/comandosCurl_modificado.sh"  # Archivo nuevo a generar
         almacenarScript(archivo_original, archivo_nuevo)
         aplicar_chmod()
-        ejecutar_script_bash(route + "bash_scripts/comandosCurl_modificado.sh")
+        # Ejecutar el script modificado (se mostrará el progreso y, al alcanzar el umbral, se saldrá)
+        ejecutar_script_bash(archivo_nuevo)
+        # Una vez que el script de Bash se detenga por alcanzar el umbral, se procede a fotometría
+        ejecutar_fotometria()
