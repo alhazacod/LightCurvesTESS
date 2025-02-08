@@ -30,6 +30,10 @@ Este código recorta, una por una, las imágenes tomadas por TESS, enfocándolas
      - También se utilizan las librerías **shutil, glob, os y subprocess**, principalmente para ejecutar scripts de **Bash** desde Python y para la gestión de archivos.  
 
 ---
+6. ## Explicación de los diferentes scripts:
+   1.consultas.py Genera una consulta al catalogo de gaia3edr para saber que objetos circundantes hay alrededor de una estrella definida en un radio de 10 arcmin luego guarda los datos en un archivo.csv
+   2.recortes.py Realiza un recorte a cualquier imagén .fits que encuentre dentro del directorio local, guardando la imagén recortada en un directorio especifico y borrando la imagén original.
+   3.consultas.py Ejecuta los comandos de curl para descargar cada imagén del sector escogido, además modifica el archivo.sh incluyendo la ejecución de recortes.py justo después de cada descarga automatizando el proceso de descarga sin necesidad de descargar todas las imagenes del sector.
 
 ### **Importante**
      1. Este proyecto fue desarrollado en WSL y no en un entorno nativo de Linux.  
