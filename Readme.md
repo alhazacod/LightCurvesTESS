@@ -8,10 +8,11 @@ Este código recorta, una por una, las imágenes tomadas por TESS, enfocándolas
 <h2>Proceso de Ejecución</h2>
   
   1. ## Generación del script de descarga y procesamiento:
-     - Se ejecuta el código `comandos.py`,
-     -  Dependiendo si la canitdad de imagenes recortadas ya es mayor o igual que 27 (un sector) se ejecutan los GET request si no se cumple la condición segenera un script de Bash que automatiza la descarga de cada imagen y ejecuta el código para recortarla y eliminar la imagen original.  
+     - Se ejecuta el código `main.py`,
+     -  Dependiendo si la canitdad de imagenes recortadas ya es mayor o igual que n(definido en main.py) (un sector) se ejecutan los GET request si no se cumple la condición segenera un script de Bash que automatiza la descarga de cada imagen y ejecuta el código para recortarla y eliminar la imagen original.  
      - Se ejecuta la busqueda del catalogo de gaia3
      - La estrella de interés está definida en `recortes.py`.  
+     (se debe interrumír el codigo la primera vez ya que el catalogo es demasiado grande, se esta trabajando en crear un limitador para el .sh al alcanzar el numero de imagenes deseadas)
 
   2. ## Procesamiento de las imágenes:
      - Si las coordenadas de la estrella coinciden con una imagen descargada, se genera un recorte y se guarda en la carpeta `imagenes_guardadas`.  
