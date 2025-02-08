@@ -45,7 +45,8 @@ Este código recorta, una por una, las imágenes tomadas por TESS, enfocándolas
 ### **Posibles Mejoras**
      1. Se puede implementar una solicitud **GET** automatizada que itere sobre un rango de fechas específicas, ya que estas son las variables utilizadas para definir el sector.  Si esto no es posible se puede  realizar un web scrapper que descargue el archivo ffic.sh del sector deseado
      2. Se podría añadir una **barra de progreso en la terminal** o incluso una **interfaz gráfica** para visualizar el proceso en tiempo real.  
-     3. Se puede modularizar el codigo creando paquetes, de esa manera se pueden tener solo un cumulo de librerias importadas y omitir repeticiones de codigo en los 3 scripts de fotometría
+     3. Se puede modularizar el codigo creando paquetes, de esa manera se pueden tener solo un cumulo de librerias importadas y omitir repeticiones de codigo en los 3 scripts de fotometría y el movimiento de archivos a otras carpetas-
+     4.Se podrían mover todos los scripts secundarios a una carpeta llamada python_scripts cambiando las rutas para que sea mas organizado pero hay que tener mucho cuidado con todos los PATH ya que generan muchos problemas a la hora de realizar movimientos entre carpetas.
 ---
 
 ## Comandos Útiles
