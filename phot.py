@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 ###################################################################
 # Fotometria de imégenes IRAC/SPITZER                             #
-# Giovanni Pinzon, Andres Felipe Caro, Alejandro Gómez Serrato                           #
+# Giovanni Pinzon, Andres Felipe Caro
 ###################################################################
 
 # Librerias
