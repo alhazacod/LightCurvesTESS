@@ -44,7 +44,7 @@ De esta forma se evita la descarga y procesamiento del sector completo, concentr
 
 ## Dependencias Necesarias
 
-- [**astrocut**](https://github.com/astrolabsoftware/astrocut)
+- [**astrocut**](https://astrocut.readthedocs.io/en/latest/astrocut/index.html)
 - [**astropy**](https://www.astropy.org/)  
 - Además se utilizan las librerías estándar de Python: `os`, `glob`, `shutil`, `subprocess` y `pandas` (para la gestión de CSV y DataFrames).
 
