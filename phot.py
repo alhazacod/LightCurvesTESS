@@ -229,19 +229,34 @@ def cantidad_de_fits(archivo):
   # Carga del cat�logo con coordenadas e identificador :  RA DEC ID
   # !!!!!!! FORMATO DEBE ESTAR EN: RA - DEC - ID   
 def lectura_de_catalogo(data):
-  catalogo = open(data,"r")
-  objects = catalogo.readlines()
-  catalogo.close()
-    # Se organiza el catalogo como una lista ordenada
-  L_O = []
-  for i in objects:
-    L_O.append(i.split())
-  listObjects = L_O 
-  # Como el formato del catalogo es hhmmss ggmmss lo pasamos a grados decimales.
-  ra = [ i[0] for i in L_O ]
-  dec = [ i[1] for i in L_O ]
-  id = [ i[2] for i in L_O ]
-  return ra,dec, id
+    """
+    Lee el catálogo desde el archivo 'data' y retorna tres listas: ra, dec e id.
+    Se ignoran las líneas que no contengan al menos tres elementos.
+    
+    Parámetros:
+        data (str): Ruta del archivo de catálogo.
+    
+    Retorna:
+        tuple: (ra, dec, id) listas con los valores correspondientes.
+    """
+    with open(data, "r") as catalogo:
+        objects = catalogo.readlines()
+    
+    L_O = []
+    for i in objects:
+        tokens = i.split()
+        # Se agrega la línea solo si tiene al menos 3 elementos (RA, DEC, ID)
+        if len(tokens) >= 3:
+            L_O.append(tokens)
+    
+    if not L_O:
+        print("No se encontraron entradas válidas en el catálogo.")
+        return [], [], []
+    
+    ra = [i[0] for i in L_O]
+    dec = [i[1] for i in L_O]
+    id = [i[2] for i in L_O]
+    return ra, dec, id
 def adicionFiltros(all_tables):
   '''
   Esta función se encarga de crear una lista de los objetos enfocados en la foto del telescopio usando todas las tablas disponibles para la fotometría,luego se encarga de añadir los filtros necesario para cada objeto circundante
@@ -329,7 +344,7 @@ def mover_csv():
 
     Se utiliza shell=True para que se interprete correctamente la cadena del comando.
     """
-    dest_dir = "./datos_astrometria_modificados"
+    dest_dir = route + "datos_astrometria_modificados"
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
     comando = f"find ./ -type f -name '*.csv' -exec mv {{}} \"./datos_astrometria_modificados\" \\;"

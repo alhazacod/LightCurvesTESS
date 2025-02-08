@@ -6,6 +6,7 @@ import shutil
 # Variable global para la ruta principal de la organización de carpetas
 route = "./"
 
+
 def contar_fits():
     """
     Cuenta cuántos archivos .fits hay en el directorio 'route/imagenes_cortadas'.
@@ -14,12 +15,28 @@ def contar_fits():
 
 def ejecutar_consultas():
     """
-    Ejecuta directamente el script de Python 'consultas.py' (ubicado en la carpeta principal)
+    Ejecuta directamente el script de Python 'consultas.py' (ubicado en la carpeta python_scripts)
     en lugar del script de Bash.
     """
-    print("Límite de imágenes alcanzado, ejecutando solo consultas.py...")
+
     try:
         result = subprocess.run(["python3", route + "consultas.py"],
+                                capture_output=True, text=True, check=True)
+        print("El script recortes.py se ejecutó correctamente.")
+        print("Salida estándar:")
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print("Error al ejecutar recortes.py:")
+        print(e.stderr)
+def ejecutar_fotometria():
+    """
+    Ejecuta directamente el script de Python 'consultas.py' y phot.py (ubicado en la carpeta python_scripts)
+    en lugar del script de Bash.
+    """
+    print("se ha alcanzado el limite de recortes, se procede a realizar la fotometría de cada uno")
+    ejecutar_consultas()
+    try:
+        result = subprocess.run(["python3", route + "phot.py"],
                                 capture_output=True, text=True, check=True)
         print("El script recortes.py se ejecutó correctamente.")
         print("Salida estándar:")
@@ -104,7 +121,7 @@ def almacenarScript(ruta_archivo, ruta_archivo_nuevo):
         linea = linea.rstrip("\n")
         lineas_procesadas.append(linea + "\n")
         if i != 0:
-            lineas_procesadas.append("python3 recortes.py\n")
+            lineas_procesadas.append("recortes.py\n")
         else:
             lineas_procesadas.append("python3 consultas.py\n")
     
@@ -115,8 +132,9 @@ def almacenarScript(ruta_archivo, ruta_archivo_nuevo):
 
 # Bloque principal: se usan las rutas construidas a partir de la variable global 'route'
 if __name__ == "__main__":
-    if contar_fits() >= 27:
-        ejecutar_consultas()
+    if contar_fits() >= 3:
+        ejecutar_fotometria()
+
     else:
         ejecutar_consultas()
         ejecutar_script_bash(route + "bash_scripts/comandosCurl_modificado.sh")
