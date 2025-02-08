@@ -4,6 +4,7 @@ from astroquery.simbad import Simbad
 from astropy.coordinates import Angle
 import astropy.units as u
 import pandas as pd
+import shutil
 import os
 
 Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"  # Se utiliza la tercera distribución de gaia 
@@ -32,7 +33,7 @@ def query_gaia(coords, radius_arcmin=10):
     try:
         # Realizar la consulta en Gaia
         job = Gaia.launch_job_async(f"""
-            SELECT source_id, ra, dec
+            SELECT  ra, dec, source_id
             FROM gaiadr3.gaia_source
             WHERE CONTAINS(POINT('ICRS', ra, dec), 
                            CIRCLE('ICRS', {coords['recta ascencion']}, {coords['declinacion']}, {radius_deg})) = 1
@@ -43,15 +44,31 @@ def query_gaia(coords, radius_arcmin=10):
     except Exception as e:
         print("Error en la consulta:", e)
         return None
-
+def move_csv():
+    source_file = "datos_gaia3edr.csv"
+    destination_dir = "./datos_astrometria_modificados"
+        # Create the destination directory if it doesn't exist
+    if not os.path.exists(destination_dir):
+        os.makedirs(destination_dir)
+    # Construct the full destination path for the CSV file
+    destination_file = os.path.join(destination_dir, os.path.basename(source_file))
+    # Move the file from the source to the destination
+    try:
+        shutil.move(source_file, destination_file)
+        print(f"File '{source_file}' has been moved to '{destination_file}'")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 def save_to_csv():
     coordinates = get_coordinates_from_name("algol")
     print(f"las coordenadas de algol son {coordinates}")
     queryResult = query_gaia(coordinates)  
     data = queryResult.to_pandas()
-    data.to_csv('datos_gaia3edr.csv',index = False)
+    data.to_csv('datos_gaia3edr.csv',index = False, header=False,sep=" ")
     rows, columns = data.shape
     print(f"Numero de filas: {rows}, Numero de columnas: {columns}")
-  
+    move_csv()
 save_to_csv()
+# Define the source CSV file and destination directory
+
+

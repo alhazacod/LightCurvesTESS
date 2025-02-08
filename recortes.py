@@ -6,21 +6,34 @@ from astroquery.simbad import Simbad
 from astropy.coordinates import SkyCoord
 from astrocut.exceptions import InvalidQueryError
 import uuid  # For generating unique filenames
+
 route = "./"
+
 def cortarImagen(name):
-    fits_files = glob.glob(f"{route}*.fits")
+    # Find all FITS files in the current directory
+    fits_files = glob.glob("./*.fits")
     if not fits_files:
         print("No se ha encontrado ninguna imagen FITS")
         return None
 
     input_file = fits_files[0]
+
+    # Query SIMBAD for the object
     result = Simbad.query_object(name)
-    ra = result['ra'][0]  # RA en formato horas y minutos
-    dec = result['dec'][0]  # DEC en grados
-    center_coord = SkyCoord("{ra} {dec}", unit="deg")
-    cutout_size = [100, 100]
+    if result is None:
+        print(f"No se encontró el objeto {name} en SIMBAD")
+        return None
+
+    # Extract RA and DEC from the result
+    ra = result['ra'][0]    # RA in hours/minutes/seconds format (or degrees, depending on SIMBAD's output)
+    dec = result['dec'][0]  # DEC in degrees
+
+    # Use an f-string so that the variables are interpolated into the string.
+    center_coord = SkyCoord(f"{ra} {dec}", unit="deg")
+    cutout_size = [1000, 1000]
 
     try:
+        # Perform the cutout using fits_cut
         cutout_file = fits_cut(input_file, center_coord, cutout_size, single_outfile=True)
     except InvalidQueryError:
         os.remove(input_file)
@@ -31,19 +44,23 @@ def cortarImagen(name):
 
     print("Se encontró un match, realizando recorte")
     
-    dest_dir = f"{route}imagenes_cortadas"
+    # Create the destination directory if it doesn't exist
+    dest_dir = "./imagenes_cortadas"
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
 
+    # Convert the cutout file and destination directory paths to absolute paths
     cutout_file_abs = os.path.abspath(cutout_file)
     dest_dir_abs = os.path.abspath(dest_dir)
 
-    # Generate a unique filename using a UUID
+    # Generate a unique filename for the recut file
     unique_filename = f"cutout_{uuid.uuid4().hex}.fits"
     dest_file = os.path.join(dest_dir_abs, unique_filename)
 
+    # Move the cutout file to the destination directory
     shutil.move(cutout_file_abs, dest_file)
 
+    # Remove the original input file
     try:
         os.remove(input_file)
     except OSError as e:
@@ -52,11 +69,9 @@ def cortarImagen(name):
     print(f"Imagen recortada guardada en: {dest_file}")
     return dest_file
 
-
 def borrarImagen(file_path):
     """
     Borra el archivo FITS indicado por file_path.
-    (la imagén descargada inicialmente)
     
     Parámetros:
         file_path (str): Ruta del archivo a borrar.
@@ -69,6 +84,5 @@ def borrarImagen(file_path):
 
 # Ejemplo de uso:
 if __name__ == "__main__":
-   name = "algol"
-   cortarImagen(name)
-
+    name = "algol"
+    cortarImagen(name)
