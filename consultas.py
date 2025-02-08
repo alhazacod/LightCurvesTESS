@@ -7,6 +7,7 @@ import pandas as pd
 import shutil
 import os
 
+route = "./"
 Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"  # Se utiliza la tercera distribución de gaia 
 Gaia.ROW_LIMIT = -1 # unlimited -1 or limited 1000...
 
@@ -46,7 +47,7 @@ def query_gaia(coords, radius_arcmin=10):
         return None
 def move_csv():
     source_file = "datos_gaia3edr.csv"
-    destination_dir = "./datos_astrometria_modificados"
+    destination_dir = route +"datos_astrometria_modificados"
         # Create the destination directory if it doesn't exist
     if not os.path.exists(destination_dir):
         os.makedirs(destination_dir)

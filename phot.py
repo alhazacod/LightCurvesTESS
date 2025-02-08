@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 ###################################################################
-# Fotometria de im�genes IRAC/SPITZER                             #
-# Giovanni Pinzon, Andres Felipe Caro                             #
+# Fotometria de imégenes IRAC/SPITZER                             #
+# Giovanni Pinzon, Andres Felipe Caro, Alejandro Gómez Serrato                           #
 ###################################################################
 
 # Librerias
@@ -18,7 +18,7 @@
 #          Algol_{foc}.csv
 
 
-# INICIO DEL PROGRAMA #
+#Imports #
 from photutils.centroids import centroid_sources, centroid_com
 from photutils.aperture import CircularAperture
 from photutils.aperture import CircularAnnulus
@@ -38,10 +38,14 @@ import glob
 #Funciones 
 # Fotometr�a de apertura usando Photutils + Objetos de cat�logo
 # Directorio en donde se encuentran las imagenes fits  
-carpeta = "./imagenes_cortadas/"
-archivo_catalogo = "./datos_astrometria_modificados/datos_gaia3edr.csv" 
+route = "./"
+carpeta = route+"imagenes_cortadas/"
+archivo_catalogo = route+"datos_astrometria_modificados/datos_gaia3edr.csv" 
 center_box_size=3  
 def Photometry_Data_Table(fits_name, fits_path, catalogo, r, r_in, r_out, center_box_size, *args):
+  '''
+  Esta función se encarga de añadir la información astrometrica de la imagén fits como fits_data
+  '''
   # Se abre el archivo .fits para guardarlo como una variable i.e. image / fits_data
   F = fits.open(fits_path)
   FitsData = F
@@ -238,6 +242,84 @@ def lectura_de_catalogo(data):
   dec = [ i[1] for i in L_O ]
   id = [ i[2] for i in L_O ]
   return ra,dec, id
+def adicionFiltros(all_tables):
+  '''
+  Esta función se encarga de crear una lista de los objetos enfocados en la foto del telescopio usando todas las tablas disponibles para la fotometría,luego se encarga de añadir los filtros necesario para cada objeto circundante
+  '''
+  #----# Crea lista con los nombres de los objetos a los cuales se enfoca el telescopio
+  object_of_focus = []             
+  for m in all_tables:
+    
+  #if m != []:
+    ob = m['OBJECT'][0]
+    
+    if ob not in object_of_focus:
+      
+      object_of_focus.append(ob)   # Ejemplo: focus_object = ['SA98', 'SA95', '[BSA98', 'SA101', '[ASA98', 'SA104', 'SA92']
+
+  #----#  Se crea diccionario con cada objeto de enfoque
+  filtro_final = {}
+  for s in object_of_focus:
+    filtro_final[s] = []        # Ejemplo: filtro_final = {'SA98':[], 'SA95':[], '[BSA98':[], 'SA101':[], '[ASA98':[], 'SA104':[], 'SA92':[]}
+
+  #----#  Se llena el diccionario
+  for n in all_tables:
+    for p in object_of_focus:
+      ob = n['OBJECT'][0]
+      if ob == p:
+        filtro_final[ob].append(n.copy())
+  # Ejemplo: filtro_final = {'SA98':[tabla1,tabla2,tabla3,..], ... , 'SA92':[tabla1,tabla2,tabla3,..]}
+  return object_of_focus,filtro_final
+def creacionTablasCsv(filtro_final):
+  '''
+  Esta función se encarga de crear todas las tablas .csv que seran usadas para la producción de curvas de luz para algol
+  '''
+  #----# Se crean tablas para cada objeto de enfoque
+  for foc in filtro_final.keys():
+    final_obs_table = QTable()
+    final_obs_table['OBJECT_ID'] = filtro_final[foc][0]['ID']
+    final_obs_table['RA'] = filtro_final[foc][0]['RA']
+    final_obs_table['DEC'] = filtro_final[foc][0]['DEC']
+
+  #----# Se guardan las tablas como archivos .csv
+    counter = 0
+    for j in filtro_final[foc]:
+      
+    
+      final_obs_table[j.colnames[6] + '_' + str(counter//3)] = j[j.colnames[6]]
+      final_obs_table[j.colnames[7] + '_' + str(counter//3)] = j[j.colnames[7]]
+      final_obs_table[j.colnames[11] + '_' + j.colnames[6] + '_' + str(counter//3)] = j[j.colnames[11]]
+      counter += 1
+      
+    final_obs_table.write(f'./Algol_{foc}.csv', overwrite=True)    
+def interseccionFiltros(focus_object,filtro_final):
+  '''
+  Esta función se encarga de realizar la intersección de los objetos que estan en los tres filtros, al terminar elimina los datos por fuera de los tres libros y elimina las tablas vacias pertenecientes a allTables
+  '''
+  #----#  Para cada observacion de enfoque se hace la interseccion de los objetos que esten en los tres filtros
+  for foc in focus_object:
+    current_id = []
+    for j in filtro_final[foc]:
+      current_id.append(j['ID'].data)
+    
+    int_d = set(current_id[0]).intersection(*current_id) # Ejemplo para SA98: int_d = {'92_248', ... , '92_347'}
+
+    #----# Se eliminan los objetos que no esten en los tres filtros
+    for tab in filtro_final[foc]:
+      index_of = []
+      for i in range(len(tab['ID'])):
+        if tab['ID'][i] not in int_d:
+          index_of.append(i)
+      tab.remove_rows(index_of)
+
+  #----# Eliminar las tablas que esten vacias
+  for p in focus_object:
+    if len(filtro_final[p][0]) == 0:
+      del filtro_final[p]
+
+  for foc in filtro_final.keys():
+    let = len(filtro_final[foc])
+  return filtro_final
 def mover_csv():
     """
     Ejecuta el comando find para mover todos los archivos .csv al directorio "datos_astrometria_modificados".
@@ -284,6 +366,9 @@ def move_fits_out():
     print("Archivos .fits.out movidos correctamente.")
 
           # Create the destination directory if it doesn't exist
+#########################################
+#Definición de variables
+#########################################
 # Busqueda de los archivos .fits
 archivos = glob.glob(carpeta + '*.fits')
 #Definición de catalogos
@@ -291,98 +376,23 @@ nombres = cantidad_de_fits(archivos)
 ra,dec,id = lectura_de_catalogo(archivo_catalogo)
 catalogo_decimal = SkyCoord(ra, dec, unit=( u.degree))
 catalogo = list(zip(catalogo_decimal.ra.deg,catalogo_decimal.dec.deg,id))
-  
-
-
-#########################################
-# Definici�n de par�metros fotom�tricos #
-#########################################
+# Definición de parámetros fotométricos #
 r = 10 #Apertura en px
 r_in = 12 #Radio interno anillo cielo
 r_out = 14 #Radio externo
-#########################################
-
-# Se imprime la tabla en un archivo de texto plano
 all_tables = []
 for k in range(len(archivos)):
   fits_path = archivos[k]
   fits_name = nombres[k]
-#  catalogo = catalogo_final
-
   photom = Photometry_Data_Table(fits_name, fits_path, catalogo, r=r, r_in=r_in, r_out=r_out, center_box_size=center_box_size)
   if photom is not None:
   
     all_tables.append(photom)
-
+# Se imprime la tabla en un archivo de texto plano
 print(f'Se tienen {len(all_tables)} tablas de las imagenes .fits')
-#----# Crea lista con los nombres de los objetos a los cuales se enfoca el telescopio
-focus_object = []             
-for m in all_tables:
-  
- #if m != []:
-  ob = m['OBJECT'][0]
-  
-  if ob not in focus_object:
-    
-    focus_object.append(ob)   # Ejemplo: focus_object = ['SA98', 'SA95', '[BSA98', 'SA101', '[ASA98', 'SA104', 'SA92']
-
-#----#  Se crea diccionario con cada objeto de enfoque
-filtro_final = {}
-for s in focus_object:
-  filtro_final[s] = []        # Ejemplo: filtro_final = {'SA98':[], 'SA95':[], '[BSA98':[], 'SA101':[], '[ASA98':[], 'SA104':[], 'SA92':[]}
-
-#----#  Se llena el diccionario
-for n in all_tables:
-  for p in focus_object:
-    ob = n['OBJECT'][0]
-    if ob == p:
-      filtro_final[ob].append(n.copy())  # Ejemplo: filtro_final = {'SA98':[tabla1,tabla2,tabla3,..], ... , 'SA92':[tabla1,tabla2,tabla3,..]}
-
-#----#  Para cada observacion de enfoque se hace la interseccion de los objetos que esten en los tres filtros
-for foc in focus_object:
-  current_id = []
-  for j in filtro_final[foc]:
-    current_id.append(j['ID'].data)
-  
-  int_d = set(current_id[0]).intersection(*current_id) # Ejemplo para SA98: int_d = {'92_248', ... , '92_347'}
-
-  #----# Se eliminan los objetos que no esten en los tres filtros
-  for tab in filtro_final[foc]:
-    index_of = []
-    for i in range(len(tab['ID'])):
-      if tab['ID'][i] not in int_d:
-        index_of.append(i)
-    tab.remove_rows(index_of)
-
-#----# Eliminar las tablas que esten vacias
-for p in focus_object:
-  if len(filtro_final[p][0]) == 0:
-    del filtro_final[p]
-
-for foc in filtro_final.keys():
-  let = len(filtro_final[foc])
-  
-    
-
-''
-#----# Se crean tablas para cada objeto de enfoque
-for foc in filtro_final.keys():
-  final_obs_table = QTable()
-  final_obs_table['OBJECT_ID'] = filtro_final[foc][0]['ID']
-  final_obs_table['RA'] = filtro_final[foc][0]['RA']
-  final_obs_table['DEC'] = filtro_final[foc][0]['DEC']
-
-#----# Se guardan las tablas como archivos .csv
-  counter = 0
-  for j in filtro_final[foc]:
-    
-  
-    final_obs_table[j.colnames[6] + '_' + str(counter//3)] = j[j.colnames[6]]
-    final_obs_table[j.colnames[7] + '_' + str(counter//3)] = j[j.colnames[7]]
-    final_obs_table[j.colnames[11] + '_' + j.colnames[6] + '_' + str(counter//3)] = j[j.colnames[11]]
-    counter += 1
-    
-  final_obs_table.write(f'./Algol_{foc}.csv', overwrite=True)    
+focus_object,filtro_final = adicionFiltros(all_tables)
+filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
+creacionTablasCsv(filtro_resultado)
 mover_csv()
 move_fits_out()
 # FIN DEL PROGRAMA #

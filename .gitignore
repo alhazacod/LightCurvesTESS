@@ -1,2 +1,3 @@
 *.fits
-datos_gaia3edr.csv
+*.fits.out
+*.csv

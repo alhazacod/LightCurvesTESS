@@ -1,23 +1,25 @@
 import os
 import subprocess
-import os
-import subprocess
 import glob
+import shutil
+
+# Variable global para la ruta principal de la organización de carpetas
 route = "./"
+
 def contar_fits():
     """
-    Cuenta cuántos archivos .fits hay en el directorio './imagenes_cortadas'.
+    Cuenta cuántos archivos .fits hay en el directorio 'route/imagenes_cortadas'.
     """
-    return len(glob.glob("./imagenes_cortadas/*.fits"))
-
+    return len(glob.glob(route + "imagenes_cortadas/*.fits"))
 
 def ejecutar_consultas():
     """
-    Ejecuta directamente el script de Python 'consultas.py' en lugar del script de Bash.
+    Ejecuta directamente el script de Python 'consultas.py' (ubicado en la carpeta principal)
+    en lugar del script de Bash.
     """
     print("Límite de imágenes alcanzado, ejecutando solo consultas.py...")
     try:
-        result = subprocess.run(["python3", "consultas.py"],
+        result = subprocess.run(["python3", route + "consultas.py"],
                                 capture_output=True, text=True, check=True)
         print("El script recortes.py se ejecutó correctamente.")
         print("Salida estándar:")
@@ -28,19 +30,16 @@ def ejecutar_consultas():
 
 def mover_fits():
     """
-    Ejecuta el comando find para mover todos los archivos .fits al directorio "ImagenesSinCortar".
+    Ejecuta el comando find para mover todos los archivos .fits al directorio 'route/imagenes_cortadas'.
 
     El comando utilizado es:
-      find . -type f -name '*.fits' -exec mv {} "./ImagenesSinCortar" \;
+      find {route} -type f -name '*.fits' -exec mv {} "{route}imagenes_cortadas" \;
 
     Se utiliza shell=True para que se interprete correctamente la cadena del comando.
     """
-    
-    comando = f"find ./ -type f -name '*.fits' -exec mv {{}} \"./imagenes_cortadas\" \\;"
-
-    print("moviendo las imagenes descargadas")
+    comando = f"find {route} -type f -name '*.fits' -exec mv {{}} \"{route}imagenes_cortadas\" \\;"
+    print("Moviendo las imágenes descargadas...")
     resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
-
     if resultado.returncode != 0:
         print("Error al mover archivos .fits:")
         print(resultado.stderr)
@@ -54,12 +53,10 @@ def ejecutar_script_bash(script_path):
     Parámetros:
       - script_path (str): La ruta del script bash que se desea ejecutar.
     
-    Se asume que el script tiene permisos de ejecución. Si no es así, se fuerza su ejecución
-    mediante bash.
+    Se asume que el script tiene permisos de ejecución. Si no es así, se fuerza su ejecución mediante bash.
     """
     print("Iniciando Descargas")
     try:
-        # Ejecuta el script utilizando 'bash' explícitamente para garantizar su ejecución
         result = subprocess.run(["bash", script_path],
                                 capture_output=True, text=True, check=True)
         print("El script se ejecutó correctamente.")
@@ -71,12 +68,11 @@ def ejecutar_script_bash(script_path):
 
 def aplicar_chmod():
     """
-    Ejecuta el comando 'chmod +x ./bash_scripts/comandosCurl_modificado.sh'
+    Ejecuta el comando 'chmod +x {route}bash_scripts/comandosCurl_modificado.sh'
     para asignar permisos de ejecución al archivo.
     """
-    comando = ["chmod", "+x", "./bash_scripts/comandosCurl_modificado.sh"]
+    comando = ["chmod", "+x", route + "bash_scripts/comandosCurl_modificado.sh"]
     resultado = subprocess.run(comando, capture_output=True, text=True)
-    
     if resultado.returncode != 0:
         print("Error al aplicar chmod:", resultado.stderr)
     else:
@@ -86,12 +82,12 @@ def almacenarScript(ruta_archivo, ruta_archivo_nuevo):
     """
     Lee el archivo especificado en 'ruta_archivo' y crea un nuevo archivo en 'ruta_archivo_nuevo'
     con las siguientes modificaciones:
-      1. Si el archivo nuevo existe, se borra antes de crear el nuevo.
+      1. Si el archivo nuevo existe, se borra antes de crearlo.
       2. Se copia cada línea del archivo original.
-         - Justo después de la primera línea (línea 0) no se añade nada.
-         - Después de la segunda línea (línea 1) se añade la línea "python3 hola.py".
+         - Después de la primera línea (índice 0) se añade "python3 consultas.py"
+           y después de la segunda línea (índice 1) se añade "python3 recortes.py".
       3. Al final del archivo se añade la línea:
-         find . -name '*.fits' -mv "./ImagenesSinCortar"
+         find . -name '*.fits' -mv "{route}ImagenesSinCortar"
     
     Retorna:
         list: Una lista con las líneas procesadas.
@@ -101,39 +97,31 @@ def almacenarScript(ruta_archivo, ruta_archivo_nuevo):
         os.remove(ruta_archivo_nuevo)
     
     lineas_procesadas = []
-    
-    # Leer todas las líneas del archivo original
     with open(ruta_archivo, 'r', encoding='utf-8') as archivo:
         lineas = archivo.readlines()
     
-    # Procesar cada línea
     for i, linea in enumerate(lineas):
-        # Eliminar salto de línea final para evitar duplicados
         linea = linea.rstrip("\n")
-        # Agregar la línea original seguida de un salto de línea
         lineas_procesadas.append(linea + "\n")
-        # Después de la segunda línea (índice 1) se añade "python3 hola.py"
         if i != 0:
-            lineas_procesadas.append("python3 recortes.py\n")  
-        else :
-            lineas_procesadas.append("python3 consultas.py\n")  
-    # Guardar el contenido modificado en el nuevo archivo
+            lineas_procesadas.append("python3 recortes.py\n")
+        else:
+            lineas_procesadas.append("python3 consultas.py\n")
+    
     with open(ruta_archivo_nuevo, 'w', encoding='utf-8') as nuevo_archivo:
         nuevo_archivo.writelines(lineas_procesadas)
     
     return lineas_procesadas
-# Ejecutar la función al correr el script
- 
 
+# Bloque principal: se usan las rutas construidas a partir de la variable global 'route'
 if __name__ == "__main__":
     if contar_fits() >= 27:
         ejecutar_consultas()
     else:
         ejecutar_consultas()
-        ejecutar_script_bash("./bash_scripts/comandosCurl_modificado.sh")
-        archivo_original = "./bash_scripts/comandosCurl"           # Archivo original
-        archivo_nuevo = "./bash_scripts/comandosCurl_modificado.sh"  # Archivo nuevo a generar
+        ejecutar_script_bash(route + "bash_scripts/comandosCurl_modificado.sh")
+        archivo_original = route + "bash_scripts/comandosCurl"           # Archivo original
+        archivo_nuevo = route + "bash_scripts/comandosCurl_modificado.sh"  # Archivo nuevo a generar
         almacenarScript(archivo_original, archivo_nuevo)
         aplicar_chmod()
-        ejecutar_script_bash("./bash_scripts/comandosCurl_modificado.sh")
-
+        ejecutar_script_bash(route + "bash_scripts/comandosCurl_modificado.sh")

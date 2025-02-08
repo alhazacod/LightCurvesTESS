@@ -11,7 +11,7 @@ route = "./"
 
 def cortarImagen(name):
     # Find all FITS files in the current directory
-    fits_files = glob.glob("./*.fits")
+    fits_files = glob.glob(route+"*.fits")
     if not fits_files:
         print("No se ha encontrado ninguna imagen FITS")
         return None
@@ -45,7 +45,7 @@ def cortarImagen(name):
     print("Se encontró un match, realizando recorte")
     
     # Create the destination directory if it doesn't exist
-    dest_dir = "./imagenes_cortadas"
+    dest_dir = route+"imagenes_cortadas"
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
 
