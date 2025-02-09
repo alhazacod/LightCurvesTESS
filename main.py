@@ -11,7 +11,6 @@ def contar_fits():
     Cuenta cuántos archivos .fits hay en el directorio 'route/imagenes_cortadas'.
     """
     return len(glob.glob(route + "imagenes_cortadas/*.fits"))
-
 def ejecutar_consultas():
     """
     Ejecuta directamente el script de Python 'consultas.py' (ubicado en la carpeta principal)
@@ -22,7 +21,6 @@ def ejecutar_consultas():
     except subprocess.CalledProcessError as e:
         print("Error al ejecutar consultas.py:")
         print(e)
-
 def ejecutar_fotometria():
     """
     Ejecuta directamente los scripts 'consultas.py' y 'phot.py' para proceder con la fotometría.
@@ -35,7 +33,6 @@ def ejecutar_fotometria():
     except subprocess.CalledProcessError as e:
         print("Error al ejecutar phot.py:")
         print(e)
-
 def mover_fits():
     """
     Ejecuta el comando find para mover todos los archivos .fits al directorio 'route/imagenes_cortadas'.
@@ -48,7 +45,6 @@ def mover_fits():
         print(resultado.stderr)
     else:
         print("Archivos .fits movidos correctamente.")
-
 def ejecutar_script_bash(script_path):
     """
     Ejecuta el script Bash especificado en 'script_path' y muestra la salida en tiempo real.
@@ -103,7 +99,7 @@ def almacenarScript(ruta_archivo, ruta_archivo_nuevo):
         lineas = archivo.readlines()
     
     # Definir el umbral (threshold) de archivos .fits en la carpeta imagenes_cortadas
-    threshold = 5  # Modifica este valor según sea necesario
+    threshold = 30 # Modifica este valor según sea necesario
     
     # Bloque único al inicio: Si existe un shebang, conservarlo
     if lineas and lineas[0].startswith("#!"):

@@ -25,23 +25,35 @@ from photutils.aperture import CircularAnnulus
 from photutils.aperture import aperture_photometry
 from photutils.utils import calc_total_error
 from scipy.stats import mode
+from astroquery.simbad import Simbad 
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.table import Table
 from astropy.table.table import QTable
 from astropy.coordinates import SkyCoord
+from astropy.time import Time
 from astropy import units as u
+from datetime import datetime
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
 import numpy as np
 import os
+import csv
 import subprocess
 import glob
-#Funciones 
-# Fotometr�a de apertura usando Photutils + Objetos de cat�logo
+
+
+# Fotometría de apertura usando Photutils + Objetos de catálogo
+
+#variables globales
 # Directorio en donde se encuentran las imagenes fits  
 route = "./"
 carpeta = route+"imagenes_cortadas/"
 archivo_catalogo = route+"datos_astrometria_modificados/datos_gaia3edr.csv" 
 center_box_size=3  
+Simbad.add_votable_fields('ids')
+#Funciones que realizan cada una de las tareas
 def Photometry_Data_Table(fits_name, fits_path, catalogo, r, r_in, r_out, center_box_size, *args):
   '''
   Esta función se encarga de añadir la información astrometrica de la imagén fits como fits_data
@@ -337,17 +349,17 @@ def interseccionFiltros(focus_object,filtro_final):
   return filtro_final
 def mover_csv():
     """
-    Ejecuta el comando find para mover todos los archivos .csv al directorio "datos_astrometria_modificados".
+    Ejecuta el comando find para mover todos los archivos .csv al directorio "csv_out".
 
     El comando utilizado es:
       find . -type f -name '*.fits' -exec mv {} "./path \;
 
     Se utiliza shell=True para que se interprete correctamente la cadena del comando.
     """
-    dest_dir = route + "datos_astrometria_modificados"
+    dest_dir = route + "csv_out"
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
-    comando = f"find ./ -type f -name '*.csv' -exec mv {{}} \"./datos_astrometria_modificados\" \\;"
+    comando =f"find ./ -type f -name '*.csv' ! -name 'datos_gaia3edr.csv' -exec mv {{}} \"{dest_dir}\" \\;"
 
     print("moviendo las imagenes descargadas")
     resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
@@ -381,34 +393,96 @@ def move_fits_out():
     print("Archivos .fits.out movidos correctamente.")
 
           # Create the destination directory if it doesn't exist
-#########################################
-#Definición de variables
-#########################################
-# Busqueda de los archivos .fits
-archivos = glob.glob(carpeta + '*.fits')
-#Definición de catalogos
-nombres = cantidad_de_fits(archivos)      
-ra,dec,id = lectura_de_catalogo(archivo_catalogo)
-catalogo_decimal = SkyCoord(ra, dec, unit=( u.degree))
-catalogo = list(zip(catalogo_decimal.ra.deg,catalogo_decimal.dec.deg,id))
-# Definición de parámetros fotométricos #
-r = 10 #Apertura en px
-r_in = 12 #Radio interno anillo cielo
-r_out = 14 #Radio externo
-all_tables = []
-for k in range(len(archivos)):
-  fits_path = archivos[k]
-  fits_name = nombres[k]
-  photom = Photometry_Data_Table(fits_name, fits_path, catalogo, r=r, r_in=r_in, r_out=r_out, center_box_size=center_box_size)
-  if photom is not None:
-  
-    all_tables.append(photom)
-# Se imprime la tabla en un archivo de texto plano
-print(f'Se tienen {len(all_tables)} tablas de las imagenes .fits')
-focus_object,filtro_final = adicionFiltros(all_tables)
-filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
-creacionTablasCsv(filtro_resultado)
-mover_csv()
-move_fits_out()
-# FIN DEL PROGRAMA #
-# Observatorio Astron�mico Nacional 2025 #
+def creacionTablasFotometricas():
+  '''
+  Esta función crea los datos de todas las fotos que se encuentran en imagenes cortadas. Realizando la fotometría para todas las fotos *.fits
+  '''
+
+  # Busqueda de los archivos .fits
+  archivos = glob.glob(carpeta + '*.fits')
+  #Definición de catalogos
+  nombres = cantidad_de_fits(archivos)      
+  ra,dec,id = lectura_de_catalogo(archivo_catalogo)
+  catalogo_decimal = SkyCoord(ra, dec, unit=( u.degree))
+  catalogo = list(zip(catalogo_decimal.ra.deg,catalogo_decimal.dec.deg,id))
+  # Definición de parámetros fotométricos #
+  r = 10 #Apertura en px
+  r_in = 12 #Radio interno anillo cielo
+  r_out = 14 #Radio externo
+  all_tables = []
+  for k in range(len(archivos)):
+    fits_path = archivos[k]
+    fits_name = nombres[k]
+    photom = Photometry_Data_Table(fits_name, fits_path, catalogo, r=r, r_in=r_in, r_out=r_out, center_box_size=center_box_size)
+    if photom is not None:
+    
+      all_tables.append(photom)
+  return(all_tables)
+
+import os
+import csv
+import glob
+import pandas as pd
+from datetime import datetime
+
+def curvas_de_luz_estrella():
+    nombre_carpeta = "csv_out"
+
+    # Obtiene el directorio actual de trabajo y cambia al directorio csv_out si es necesario
+    directorio = os.getcwd()
+    if os.path.basename(directorio) != nombre_carpeta:
+        os.chdir("./csv_out")
+    
+    fechas = []
+    magnitudes = []
+    
+    # Itera por todos los archivos en el directorio actual (csv_out)
+    for archivo in os.listdir("./"):
+        if archivo.endswith(".csv"):
+            with open(archivo, mode='r', newline='', encoding='utf-8') as archivo_csv:
+                lector = csv.reader(archivo_csv)
+                # Iterar sobre las filas del CSV
+                for fila in lector:
+                    # Si el primer campo coincide con el id especificado, extrae la fecha y magnitud
+                    if fila[0] == '239863001382455424':
+                        fechas.append(fila[5])
+                        magnitudes.append(float(fila[3]))
+    
+    print(f"Datos agregados correctamente, actualmente se cuenta con {len(magnitudes)} datos")
+    
+    # Regresa al directorio padre
+    os.chdir("..")
+    
+    # Convertir las cadenas de fecha a objetos datetime
+    fechas_clean = [Time(f, format='isot', scale='utc').jd for f in fechas]
+    # Create the DataFrame using the formatted hours and the magnitudes
+    data_to_plot = pd.DataFrame({'fechas': fechas_clean, 'magnitudes': magnitudes})
+    data_to_plot.sort_values(by='fechas', inplace=True)
+    # Sort the DataFrame by the 'fechas' column while keeping the magnitudes associated correctly
+    # data_to_plot.sort_values(by='fechas', inplace=True)
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(data_to_plot['fechas'],magnitudes, marker='o', linestyle='-',color="black")
+    plt.xticks(rotation=45)  # Rotar etiquetas del eje X para mejor visibilidad
+    plt.xlabel("Fecha y Hora")
+    plt.ylabel("Valores")
+    plt.title("Gráfico con Fechas Ordenadas")
+    plt.grid()
+    plt.savefig("figura.png")
+
+if __name__ == "__main__":
+    curvas_de_luz_estrella()
+
+
+#Ejecución de funciones para obtener los datos
+
+#array_de_tablas = creacionTablasFotometricas()
+## Se imprime la tabla en un archivo de texto plano
+#print(f'Se tienen {len(array_de_tablas)} tablas de las imagenes .fits')
+#focus_object,filtro_final = adicionFiltros(array_de_tablas)
+#filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
+#creacionTablasCsv(filtro_resultado)
+#mover_csv()#Mueve las tablas generadas
+#move_fits_out()#Como el codigo genera tablas .fits.out se mueven a la carpeta fits_out pero se pueden borrar en vez de moverlos
+curvas_de_luz_estrella()#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
+# Observatorio Astronómico Nacional 2025 #
