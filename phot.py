@@ -476,14 +476,14 @@ if __name__ == "__main__":
 
 #Ejecución de funciones para obtener los datos
 
-#array_de_tablas = creacionTablasFotometricas()
+array_de_tablas = creacionTablasFotometricas()
 ## Se imprime la tabla en un archivo de texto plano
-#print(f'Se tienen {len(array_de_tablas)} tablas de las imagenes .fits')
-#focus_object,filtro_final = adicionFiltros(array_de_tablas)
-#filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
-#creacionTablasCsv(filtro_resultado)
-#mover_csv()#Mueve las tablas generadas
-#move_fits_out()#Como el codigo genera tablas .fits.out se mueven a la carpeta fits_out pero se pueden borrar en vez de moverlos
+print(f'Se tienen {len(array_de_tablas)} tablas de las imagenes .fits')
+focus_object,filtro_final = adicionFiltros(array_de_tablas)
+filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
+creacionTablasCsv(filtro_resultado)
+mover_csv()#Mueve las tablas generadas
+move_fits_out()#Como el codigo genera tablas .fits.out se mueven a la carpeta fits_out pero se pueden borrar en vez de moverlos
 curvas_de_luz_estrella()#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
 <<<<<<< HEAD
 # Observatorio Astronómico Nacional 2025 #
