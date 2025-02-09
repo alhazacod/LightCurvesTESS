@@ -5,35 +5,34 @@ from astrocut import fits_cut
 from astroquery.simbad import Simbad
 from astropy.coordinates import SkyCoord
 from astrocut.exceptions import InvalidQueryError
-import uuid  # For generating unique filenames
 
 route = "./"
 
 def cortarImagen(name):
-    # Find all FITS files in the current directory
-    fits_files = glob.glob(route+"*.fits")
+    # Buscar todos los archivos FITS en el directorio actual
+    fits_files = glob.glob(route + "*.fits")
     if not fits_files:
         print("No se ha encontrado ninguna imagen FITS")
         return None
 
     input_file = fits_files[0]
 
-    # Query SIMBAD for the object
+    # Consulta a SIMBAD para el objeto
     result = Simbad.query_object(name)
     if result is None:
         print(f"No se encontró el objeto {name} en SIMBAD")
         return None
 
-    # Extract RA and DEC from the result
-    ra = result['ra'][0]    # RA in hours/minutes/seconds format (or degrees, depending on SIMBAD's output)
-    dec = result['dec'][0]  # DEC in degrees
+    # Extraer RA y DEC de la consulta (en formato sexagesimal)
+    ra = result['ra'][0]    # RA en horas/minutos/segundos (o grados, según la salida de SIMBAD)
+    dec = result['dec'][0]  # DEC en grados
 
-    # Use an f-string so that the variables are interpolated into the string.
+    # Convertir la cadena a coordenadas usando SkyCoord
     center_coord = SkyCoord(f"{ra} {dec}", unit="deg")
     cutout_size = [1000, 1000]
 
     try:
-        # Perform the cutout using fits_cut
+        # Realizar el recorte utilizando fits_cut
         cutout_file = fits_cut(input_file, center_coord, cutout_size, single_outfile=True)
     except InvalidQueryError:
         os.remove(input_file)
@@ -44,23 +43,25 @@ def cortarImagen(name):
 
     print("Se encontró un match, realizando recorte")
     
-    # Create the destination directory if it doesn't exist
-    dest_dir = route+"imagenes_cortadas"
+    # Crear el directorio de destino si no existe
+    dest_dir = route + "imagenes_cortadas"
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
 
-    # Convert the cutout file and destination directory paths to absolute paths
+    # Convertir las rutas a absolutas
     cutout_file_abs = os.path.abspath(cutout_file)
     dest_dir_abs = os.path.abspath(dest_dir)
 
-    # Generate a unique filename for the recut file
-    unique_filename = f"cutout_{uuid.uuid4().hex}.fits"
+    # Generar un nombre secuencial para el archivo recortado
+    # Se cuenta el número de archivos .fits ya presentes y se suma 1
+    count = len(glob.glob(os.path.join(dest_dir_abs, "*.fits"))) + 1
+    unique_filename = f"{count}_{name}.fits"
     dest_file = os.path.join(dest_dir_abs, unique_filename)
 
-    # Move the cutout file to the destination directory
+    # Mover el archivo recortado al directorio de destino
     shutil.move(cutout_file_abs, dest_file)
 
-    # Remove the original input file
+    # Borrar el archivo original utilizado para el recorte
     try:
         os.remove(input_file)
     except OSError as e:
