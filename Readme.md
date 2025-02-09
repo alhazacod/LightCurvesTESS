@@ -1,69 +1,75 @@
+# Proyecto de Fotometría de Imágenes TESS
 
+## Descripción del Código
 
----
+Este proyecto se encarga de automatizar el procesamiento de imágenes tomadas por TESS. El flujo de trabajo consiste en:
+- **Descargar** imágenes (ficheros FITS) mediante comandos `curl` definidos en un archivo de texto.
+- **Recortar** cada imagen para enfocar únicamente en una estrella de interés (por ejemplo, Algol), utilizando el script `recortes.py`.
+- **Consultar** el catálogo de Gaia (con ayuda de SIMBAD) para obtener objetos circundantes y generar un archivo CSV con dicha información.
+- **Realizar fotometría** sobre cada imagen recortada para obtener datos instrumentales y compararlos con el catálogo.
 
- <h1>Descripción del Código</h1>
-Este código recorta, una por una, las imágenes tomadas por TESS, enfocándolas en una estrella específica (si se encuentra una coincidencia) definida por sus coordenadas de  RA y  DE, evitando así la descarga del sector completo.
+De esta forma se evita la descarga y procesamiento del sector completo, concentrándose solo en las imágenes que contienen la estrella de interés.
 
-<h2>Proceso de Ejecución</h2>
-  
-  1. ## Generación del script de descarga y procesamiento:
-     - Se ejecuta el código `main.py`,
-     -  Cada vez que se ejecuta el script se borra el progreso realizado anteriormente.
-     - Se ejecuta la busqueda del catalogo de gaia3
-     - La estrella de interés está definida en `recortes.py`.  
+## Proceso de Ejecución
 
-  
+1. **Generación del script de descarga y procesamiento:**
+   - Se ejecuta `main.py`, que se encarga de coordinar el proceso.
+   - Al inicio de cada ejecución se borra el progreso anterior (por ejemplo, se limpia la carpeta de imágenes) mediante un script de limpieza.
+   - Se consulta el catálogo de Gaia a través de SIMBAD para obtener los objetos circundantes a la estrella de interés.
+   - La estrella de interés está definida en el script `recortes.py`.
 
-  2. ## Procesamiento de las imágenes:
-     - Si las coordenadas de la estrella coinciden con una imagen descargada, se genera un recorte y se guarda en la carpeta `imagenes_guardadas`.  
-     - Este proceso se repite hasta que todas las imágenes del sector hayan sido procesadas.  
+2. **Procesamiento de las imágenes:**
+   - Para cada imagen descargada, si las coordenadas de la estrella coinciden con la imagen, se genera un recorte.
+   - Los recortes se guardan en la carpeta `imagenes_cortadas` (o `imagenes_guardadas`, según la configuración) y se elimina la imagen original.
+   - Se implementa una comprobación de progreso en el script de Bash que descarga y procesa las imágenes: a medida que se generan recortes, se muestra el progreso (por ejemplo, "Progress: 1/5 images downloaded").  
+   - Una vez alcanzado el límite de recortes definidos, el script de Bash se detiene y se continúa con la siguiente fase.
 
- 3. ## Catalogo Gaia:
-     - Se hace un llamadao al catalogo de gaia3 con simbad con ayuda del codigo de un compañero, el csv se guarda según un radio en arcominutos encontrando objetos circundantes. 
- 4. ## Fotometria y datos:
-     - Luego de tener las los recortes de las imagenes y el catalogo de gaia3 en un archivo csv se ejecuta el archivo fot.py que analiza los recortes generados y los compara con los objetos cercanos a la estrella predefinida, en este caso algol
-     -Al realizar esto para cada imagén recortada se genera un archivo csv por imagén que contiene los match entre los elementos de la foto y el catalogo de gaia3. Esto se realiza para cada recorte! 
+3. **Consulta al Catálogo Gaia:**
+   - Se consulta el catálogo Gaia (gaiadr3) para obtener los objetos en un radio de 10 arcmin alrededor de la estrella de interés.
+   - Los datos obtenidos se almacenan en un archivo CSV que contiene la información de los objetos circundantes.
 
- 5. ## Requisitos previos:
-     - Solo es necesario contar con el archivo de texto `comandosCurl`, el cual contiene los comandos necesarios para descargar el sector.  
-     - El resto del código se ejecutará automáticamente sin intervención adicional.  Se puede acceder a este en: https://archive.stsci.edu/tess/bulk_downloads/bulk_downloads_ffi-tp-lc-dv.html 
-     
- 6. ## Dependencias necesarias:
-     - Se deben instalar las librerías **astrocut** y astropy.  
-     - También se utilizan las librerías **shutil, glob, os y subprocess**, principalmente para ejecutar scripts de **Bash** desde Python y para la gestión de archivos.  
+4. **Fotometría y Análisis:**
+   - Con los recortes de imágenes y el catálogo generado, se ejecuta `phot.py`, el cual realiza la fotometría de cada imagen recortada.
+   - Para cada imagen se genera un CSV con los "match" entre los objetos detectados en la imagen y los del catálogo Gaia.
 
----
-7. ## Explicación de los diferentes scripts:
-   1.consultas.py Genera una consulta al catalogo de gaia3edr para saber que objetos circundantes hay alrededor de una estrella definida en un radio de 10 arcmin luego guarda los datos en un archivo.csv
-   2.recortes.py Realiza un recorte a cualquier imagén .fits que encuentre dentro del directorio local, guardando la imagén recortada en un directorio especifico y borrando la imagén original.
-   3.consultas.py Ejecuta los comandos de curl para descargar cada imagén del sector escogido, además modifica el archivo.sh incluyendo la ejecución de recortes.py justo después de cada descarga automatizando el proceso de descarga sin necesidad de descargar todas las imagenes del sector.
+## Requisitos Previos
 
-### **Importante**
-     1. Este proyecto fue desarrollado en WSL y no en un entorno nativo de Linux.  
-     2. Para que funcione correctamente, es imprescindible contar con acceso a internet**, ya que se accede a la API de TESS para la descarga de cada imagen.  
-     3.  El código no muestra avances en la terminal , pero las imágenes procesadas pueden verse en los directorios correspondientes a medida que son generadas.  
+- **Archivo de Comandos:**  
+  Es necesario contar con el archivo `comandosCurl` que contiene los comandos necesarios para descargar las imágenes del sector.  
+  Se puede acceder a los datos desde:  
+  [TESS Bulk Downloads](https://archive.stsci.edu/tess/bulk_downloads/bulk_downloads_ffi-tp-lc-dv.html)
 
----
+- **Acceso a Internet:**  
+  El proyecto requiere acceso a internet para conectarse a la API de TESS y a SIMBAD/Gaia.
 
-### **Posibles Mejoras**
-     1. Se puede implementar una solicitud **GET** automatizada que itere sobre un rango de fechas específicas, ya que estas son las variables utilizadas para definir el sector.  Si esto no es posible se puede  realizar un web scrapper que descargue el archivo ffic.sh del sector deseado
-     2. Se podría añadir una **barra de progreso en la terminal** o incluso una **interfaz gráfica** para visualizar el proceso en tiempo real.  
-     3. Se puede modularizar el codigo creando paquetes, de esa manera se pueden tener solo un cumulo de librerias importadas y omitir repeticiones de codigo en los 3 scripts de fotometría y el movimiento de archivos a otras carpetas-
-     4.Se podrían mover todos los scripts secundarios a una carpeta llamada python_scripts cambiando las rutas para que sea mas organizado pero hay que tener mucho cuidado con todos los PATH ya que generan muchos problemas a la hora de realizar movimientos entre carpetas.
----
+## Dependencias Necesarias
 
-## Comandos Útiles
-- ### Eliminar múltiples archivos de una misma extensión:**
-  ```bash
-  find . -name '*.fits' -delete
-  ```
-- ### Hacer ejecutable un script `.sh` 
-  *(Esto ya se realiza automáticamente en el código, pero si es necesario manualmente, puedes usar el siguiente comando:)*  
-  ```bash
-  chmod +x comandosCurl.sh
-  ```
+- [**astrocut**](https://astrocut.readthedocs.io/en/latest/astrocut/index.html)
+- [**astropy**](https://www.astropy.org/)  
+- Además se utilizan las librerías estándar de Python: `os`, `glob`, `shutil`, `subprocess` y `pandas` (para la gestión de CSV y DataFrames).
 
----
+## Descripción de los Scripts
 
+1. **consultas.py:**  
+   Realiza una consulta al catálogo Gaia (gaiadr3) para obtener los objetos circundantes a la estrella definida (dentro de un radio de 10 arcmin) y guarda los resultados en un archivo CSV.
 
+2. **recortes.py:**  
+   Recorre el directorio local en busca de imágenes FITS. Para cada imagen, si las coordenadas de la estrella de interés coinciden, genera un recorte enfocado en esa estrella, lo guarda en un directorio específico y borra la imagen original.
+
+3. **comandosCurl (y su versión modificada comandosCurl_modificado.sh):**  
+   Contiene los comandos `curl` necesarios para descargar cada imagen del sector.  
+   La versión modificada de este script (generada automáticamente por `almacenarScript`) incluye además:
+   - Una llamada única al script de limpieza (`limpieza.sh`).
+   - Un bloque de progreso que muestra en la terminal cuántas imágenes recortadas se han generado (por ejemplo, "Progress: 2/5 images downloaded").
+   - Una verificación que, al alcanzar el límite definido, detiene la ejecución del script de Bash y permite que el flujo en `main.py` continúe para ejecutar la fotometría.
+
+4. **limpieza.sh:**  
+   Este script elimina todos los archivos con extensiones `.csv`, `.fits` y `.fits.out` en el directorio principal.  
+   La ruta configurada es `./bash_scripts/limpieza.sh` y se ejecuta solo una vez al inicio del proceso de descargas.
+
+## Ejecución del Proyecto
+
+Para iniciar el proceso, ejecuta:
+
+```bash
+python3 main.py

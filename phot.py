@@ -485,4 +485,8 @@ if __name__ == "__main__":
 #mover_csv()#Mueve las tablas generadas
 #move_fits_out()#Como el codigo genera tablas .fits.out se mueven a la carpeta fits_out pero se pueden borrar en vez de moverlos
 curvas_de_luz_estrella()#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
+<<<<<<< HEAD
 # Observatorio Astronómico Nacional 2025 #
+=======
+# Observatorio Astronómico Nacional 2025 #
+>>>>>>> a98bcf1aef5f06cc5d8a943864703d97080e8828
