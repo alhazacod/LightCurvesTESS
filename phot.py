@@ -36,6 +36,7 @@ from astropy import units as u
 from datetime import datetime
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import pandas as pd
 import numpy as np
 import os
@@ -458,15 +459,32 @@ def curvas_de_luz_estrella():
     # Create the DataFrame using the formatted hours and the magnitudes
     data_to_plot = pd.DataFrame({'fechas': fechas_clean, 'magnitudes': magnitudes})
     data_to_plot.sort_values(by='fechas', inplace=True)
+    flujos=[]
+    for i in magnitudes:
+      flujos.append(10**(-i/2.5))
     # Sort the DataFrame by the 'fechas' column while keeping the magnitudes associated correctly
     # data_to_plot.sort_values(by='fechas', inplace=True)
+    # Create a figure with a custom size
+# Plot the data with line and dot markers.
+# Here, 'data_to_plot' is assumed to be a DataFrame that contains the columns 'fechas' and 'magnitudes'.
+    sns.lineplot(
+    x=data_to_plot['fechas'], 
+    y=data_to_plot['magnitudes'], 
+    marker='o',           # Use circle markers at each data point
+    markersize=6,
+    sort=True, 
+    err_style='band', 
+    ci='deprecated', 
+    label='Magnitudes'
+)
+    sns.set_style("dark")
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(data_to_plot['fechas'],magnitudes, marker='o', linestyle='-',color="black")
+    plt.figure(figsize=(10, 7))
+    plt.plot(data_to_plot['fechas'],flujos, marker='o', linestyle='-',color="black")
     plt.xticks(rotation=45)  # Rotar etiquetas del eje X para mejor visibilidad
     plt.xlabel("Fecha y Hora")
     plt.ylabel("Valores")
-    plt.title("Gráfico con Fechas Ordenadas")
+    plt.title("Gráfico de curvas de luz para algol")
     plt.grid()
     plt.savefig("figura.png")
 
@@ -476,17 +494,13 @@ if __name__ == "__main__":
 
 #Ejecución de funciones para obtener los datos
 
-array_de_tablas = creacionTablasFotometricas()
+#array_de_tablas = creacionTablasFotometricas()
 ## Se imprime la tabla en un archivo de texto plano
-print(f'Se tienen {len(array_de_tablas)} tablas de las imagenes .fits')
-focus_object,filtro_final = adicionFiltros(array_de_tablas)
-filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
-creacionTablasCsv(filtro_resultado)
-mover_csv()#Mueve las tablas generadas
-move_fits_out()#Como el codigo genera tablas .fits.out se mueven a la carpeta fits_out pero se pueden borrar en vez de moverlos
+#print(f'Se tienen {len(array_de_tablas)} tablas de las imagenes .fits')
+#focus_object,filtro_final = adicionFiltros(array_de_tablas)
+#filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
+#creacionTablasCsv(filtro_resultado)
+#mover_csv()#Mueve las tablas generadas
+#move_fits_out()#Como el codigo genera tablas .fits.out se mueven a la carpeta fits_out pero se pueden borrar en vez de moverlos
 curvas_de_luz_estrella()#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
-<<<<<<< HEAD
 # Observatorio Astronómico Nacional 2025 #
-=======
-# Observatorio Astronómico Nacional 2025 #
->>>>>>> a98bcf1aef5f06cc5d8a943864703d97080e8828
