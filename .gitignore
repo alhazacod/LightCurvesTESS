@@ -1,4 +1,5 @@
 *.fits
 *.fits.out
 *.csv
+*.pyc
 comandosCurl_modificado.sh
