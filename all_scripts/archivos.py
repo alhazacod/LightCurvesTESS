@@ -1,22 +1,31 @@
 from all_scripts import astrometria as astrom
+from all_scripts import todas_las_rutas as r
+from rich.live import Live
+from rich.console import Console
+from rich.text import Text
+from rich.progress import Progress
+import rich 
 import os
 import subprocess
 import json
 import glob
 import shutil
+import sys
+
+from time import sleep
+
 
 
 # Variable global para la ruta principal de la organización de carpetas
-route = "./"
-threshold = 20#variable para cambiar la cantidad de recortes que se guardan
-#las primeras 77 se guardaron sin generar errores de buffer
-
-
+route = r.route
+imagenes_cortadas = r.imagenes_cortadas
+archivo_catalogo = r.archivo_catalogo
+threshold = 1000#variable para cambiar la cantidad de recortes que se guardan
 def contar_fits():
     """
     Cuenta cuántos archivos .fits hay en el directorio 'route/imagenes_cortadas'.
     """
-    return len(glob.glob(route + "imagenes_cortadas/*.fits"))
+    return len(glob.glob(imagenes_cortadas + "/*.fits"))
 def mover_objetos(tipo_de_archivo, directorio_de_destino):
     """
     Mueve todos los archivos con la extensión especificada a un directorio de destino,
@@ -71,7 +80,6 @@ def mover_objeto(nombre_de_archivo, directorio_de_destino):
         print(f"File '{source_file}' has been moved to '{destination_file}'")
     except Exception as e:
         print(f"An error occurred: {e}")
-
 def ejecutar_curl_desde_archivo():
     """
     Executes curl commands from a shell file one by one, starting from the line number
@@ -93,38 +101,66 @@ def ejecutar_curl_desde_archivo():
 
     # Define the shell file containing the curl commands.
     archivo_sh = os.path.join(route, "bash_scripts", "comandos_curl.txt")
-    actualizar_progreso()
-    
-    with open(archivo_sh, "r", encoding="utf-8") as archivo:
-        for i, linea in enumerate(archivo):
-            if i < start_line + 1:
-                continue  # Skip lines before the stored start
-            
-            linea = linea.strip()
-            print(f"Executing curl command at line {i}: {linea}")
-            try:
-                subprocess.run(linea, shell=True, check=True, text=True)
-            except subprocess.CalledProcessError as e:
-                print(f"Error executing line {i}: {linea}. Error: {e}")
-            
-            # Process the downloaded image by calling your function
-    
-            match = astrom.cortarImagen("algol")
-            if match:
-                actualizar_progreso()
-                # If a match is found, update the JSON with the current line number.
+    total_imagenes = len(glob.glob(os.path.join(r.imagenes_cortadas, "*.fits")))
+    if total_imagenes < threshold:
+        actualizar_progreso(True)
+        
+        with open(archivo_sh, "r", encoding="utf-8") as archivo:
+            for i, linea in enumerate(archivo):
+                if i < start_line + 1:
+                    continue  # Skip lines before the stored start
+                
+                linea = linea.strip()
+                print(f"Executing curl command at line {i}: {linea}")
                 try:
-                    with open(info_json, "w") as f_out:
-                        json.dump({"start": i}, f_out)
-                    print(f"Updated 'start' in {info_json} to {i}.")
-                except Exception as e:
-                    print(f"Error updating {info_json}: {e}")
+                 # Update the live display with the current status.
+                        sleep(1)
+                        subprocess.run("clear", shell=True, check=True, text=True)
+                     
+                        actualizar_progreso(True)
+                        subprocess.run(linea, shell=True, check=True, text=True)
+                        
+                except subprocess.CalledProcessError as e:
+                    print(f"Error executing line {i}: {linea}. Error: {e}")
+                
+                # Process the downloaded image by calling your function
+        
+                match = astrom.cortarImagen("algol")
+                if match:
+                    value = actualizar_progreso(False)
+                    # If a match is found, update the JSON with the current line number.
+                    if value >= threshold:
+                        break
+                    try:
+                        with open(info_json, "w") as f_out:
+                            json.dump({"start": i}, f_out)
+                        print(f"Updated 'start' in {info_json} to {i}.")
+                    except Exception as e:
+                        print(f"Error updating {info_json}: {e}")
+    else:
+        print("ya se cuenta con todas las imagenes deseadas")
 
-def actualizar_progreso():
+def actualizar_progreso(value):
     """
-    Cuenta el numero de imagenes .fits que hay en el directorio imagenes cortadas y retorna la cantidad  de imagenes que hay sobre el numero de imagenes requeridas para graficar en la curva de luz.
+    Counts the number of .fits files in the 'imagenes_cortadas' directory and returns that count.
+    If 'value' is True, it displays a progress bar using Rich's Progress that updates once with the current count.
     """
-    dest_dir = os.path.join(route, "imagenes_cortadas")
-    current = len(glob.glob(os.path.join(dest_dir, "*.fits")))
-    print(f"Progress: {current}/{threshold} images downloaded.")
+    current = len(glob.glob(os.path.join(route, "imagenes_cortadas", "*.fits")))
+    text = Text( f"Progreso: {current}/{threshold} images downloaded."
+    )
+    text.stylize("bold blue on green")
+    
+    rich.print(text)
+    if value:
+        progress = Progress()
+        with progress:
+            # Create a task with total equal to the threshold.
+            task = progress.add_task("[red]Downloading...", total=threshold)
+            # Update the task to reflect the current count.
+            progress.update(task, completed=current)
+            # Brief pause to allow the progress bar to be visible.
+            import time
+            time.sleep(0.5)
     return current
+
+

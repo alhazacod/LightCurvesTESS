@@ -43,6 +43,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from all_scripts import archivos as arch
+from all_scripts import todas_las_rutas as ru
 import pandas as pd
 import numpy as np
 import os
@@ -51,22 +52,33 @@ import subprocess
 import glob
 import shutil
 
+class star:
+  def __init__(name,threshold,limite):
+    self.name = name
+    self.threshold = threshold
+    self.limite = limite
+  def set_name(nombre):
+     self.name = nombre
+  def set_threshold(th):
+     self.threshold = th
+  def set_limite(limitante):
+     self.limite = limitante
 
+     
 
 # Fotometría de apertura usando Photutils + Objetos de catálogo
 
 #variables globales
-# Directorio en donde se encuentran las imagenes fits  
-route = arch.route
-carpeta = route+"imagenes_cortadas/"
-archivo_catalogo = route+"datos_astrometria_modificados/datos_gaia3edr.csv" 
+# Directorios definidos en archivos.py
+carpeta = ru.imagenes_cortadas
 center_box_size=3  
+estrella= "algol"
 Simbad.add_votable_fields('ids')
 Simbad.add_votable_fields('ids')
 #Funciones que realizan cada una de las tareas
 def save_to_csv():
-    coordinates = get_coordinates_from_name("algol")
-    print(f"las coordenadas de algol son {coordinates}")
+    coordinates = get_coordinates_from_name(estrella)
+    print(f"las coordenadas de {estrella} son {coordinates}")
     queryResult = query_gaia(coordinates)  
     data = queryResult.to_pandas()
     nombre_archivo = 'datos_gaia3edr.csv'
@@ -75,25 +87,18 @@ def save_to_csv():
     rows, columns = data.shape
     print(f"Numero de filas: {rows}, Numero de columnas: {columns}")
     arch.mover_objeto(nombre_archivo,directorio)
-def query_gaia(coords, radius_arcmin=10):
-
-    """
-    Consulta Gaia para obtener los objetos alrededor de las coordenadas dadas.
-    Convierte el radio de arcominutos a grados.
-    """
-    # Convertir radio de arcominutos a grados
+#Se define la función que toma las coordenadas y hace el query en gaia
+def query_gaia(ra, dec, radius_arcmin=1):
     radius_deg = radius_arcmin / 60.0  # Conversión: 1 arcmin = 1/60 grados
-
     try:
         # Realizar la consulta en Gaia
         job = Gaia.launch_job_async(f"""
-            SELECT  ra, dec, source_id
+            SELECT  ra, dec,source_id
             FROM gaiadr2.gaia_source
             WHERE CONTAINS(POINT('ICRS', ra, dec), 
-                           CIRCLE('ICRS', {coords['recta ascencion']}, {coords['declinacion']}, {radius_deg})) = 1
+                           CIRCLE('ICRS', {ra}, {dec}, {radius_deg})) = 1
         """)
         results = job.get_results()
-     
         return results
     except Exception as e:
         print("Error en la consulta:", e)
@@ -146,7 +151,7 @@ def get_coordinates_from_name(name):
 def cortarImagen(name):
     verdad = True
     # Buscar todos los archivos FITS en el directorio actual
-    fits_files = glob.glob(route + "*.fits")
+    fits_files = glob.glob(ru.route + "*.fits")
     if not fits_files:
         print("No se ha encontrado ninguna imagen FITS")
         return None
@@ -176,13 +181,14 @@ def cortarImagen(name):
         return verdad
     except Exception as e:
         print("Error inesperado durante el recorte:", e)
+        os.remove(input_file)
         verdad = False
         return verdad
 
     print("Se encontró un match, realizando recorte")
     
     # Crear el directorio de destino si no existe
-    dest_dir = route + "imagenes_cortadas"
+    dest_dir = ru.imagenes_cortadas
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
 
@@ -503,10 +509,10 @@ def creacionTablasFotometricas():
   '''
 
   # Busqueda de los archivos .fits
-  archivos = glob.glob(carpeta + '*.fits')
+  archivos = glob.glob(ru.imagenes_cortadas + '*.fits')
   #Definición de catalogos
   nombres = cantidad_de_fits(archivos)      
-  ra,dec,id = lectura_de_catalogo(archivo_catalogo)
+  ra,dec,id = lectura_de_catalogo(ru.archivo_catalogo)
   catalogo_decimal = SkyCoord(ra, dec, unit=( u.degree))
   catalogo = list(zip(catalogo_decimal.ra.deg,catalogo_decimal.dec.deg,id))
   # Definición de parámetros fotométricos #
@@ -560,10 +566,12 @@ def curvas_de_luz_estrella():
     for i in magnitudes:
       flujos.append(10**(-i/2.5))
     data_to_plot['magnitudes'] =flujos
-    apply_filter = False
+    apply_filter = True
     if apply_filter:
+       
+      data_to_plot = data_to_plot.iloc[19:]
       # Convert the 'fechas' column to a string in HHMM format and then to an integer for comparison.
-      data_to_plot = data_to_plot.iloc[11:]
+    
     # Sort the DataFrame by the 'fechas' column while keeping the magnitudes associated correctly
     # data_to_plot.sort_values(by='fechas', inplace=True)
     # Create a figure with a custom size
@@ -599,7 +607,24 @@ def rutina_astrometica():
   arch.mover_objetos(".csv","csv_out")#Mueve las tablas generadas
   arch.mover_objetos(".fits.out","fits_out")#Como el codigo genera tablas .fits.out se mueven a la carpeta fits_out pero se pueden borrar en vez de moverlos
   curvas_de_luz_estrella()#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
+def is_gaia_database_fallen():
+    server_status = "Server is up"
+    try:
+    # Execute a simple query
+      job = Gaia.launch_job_async("SELECT * FROM gaiadr2.gaia_source LIMIT 1")
+      results = job.get_results()
+      valor = False
+    except Exception as e:
+      error_message = str(e)
+      if "500" in error_message:
+        server_status = "The server is fallen"
+        valor = True
+      else:
+        server_status = f"Error occurred: {error_message}"
+    print(server_status)
+    return valor
 
+   
 if __name__ == "__main__":
     rutina_astrometica()
 
