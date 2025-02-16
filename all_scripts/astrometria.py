@@ -52,19 +52,27 @@ import subprocess
 import glob
 import shutil
 
-class star:
-  def __init__(name,threshold,limite):
-    self.name = name
-    self.threshold = threshold
-    self.limite = limite
-  def set_name(nombre):
-     self.name = nombre
-  def set_threshold(th):
-     self.threshold = th
-  def set_limite(limitante):
-     self.limite = limitante
+class Star:
+    def __init__(self, name_estrella, threshold):
+        self._name_estrella = name_estrella
+        self._threshold = threshold
 
-     
+    @property
+    def name_estrella(self):
+        return self._name_estrella
+
+    @name_estrella.setter
+    def name_estrella(self, value):
+        self._name_estrella = value
+
+    @property
+    def threshold(self):
+        return self._threshold
+
+    @threshold.setter
+    def threshold(self, value):
+        self._threshold = value
+
 
 # Fotometría de apertura usando Photutils + Objetos de catálogo
 
@@ -72,6 +80,7 @@ class star:
 # Directorios definidos en archivos.py
 carpeta = ru.imagenes_cortadas
 center_box_size=3  
+star = Star("algol",arch.threshold)
 estrella= "algol"
 Simbad.add_votable_fields('ids')
 Simbad.add_votable_fields('ids')
