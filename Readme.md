@@ -2,78 +2,95 @@
 
 ## Descripción del Código
 
-Este proyecto se encarga de automatizar el procesamiento de imágenes tomadas por TESS. El flujo de trabajo consiste en(es decir solo es necesario definir variables y ejecutar main.py):
-- **Descargar** imágenes (ficheros FITS) mediante comandos `curl` definidos en un archivo de texto.
+Este proyecto automatiza el procesamiento de imágenes tomadas por TESS. El flujo de trabajo se centra en definir variables y ejecutar `main.py`, el cual coordina todo el proceso. Las principales tareas del proyecto son:
+
+- **Descargar** imágenes (archivos FITS) mediante comandos `curl` definidos en un archivo de texto.
 - **Recortar** cada imagen para enfocar únicamente en una estrella de interés (por ejemplo, Algol), utilizando el script `recortes.py`.
 - **Consultar** el catálogo de Gaia (con ayuda de SIMBAD) para obtener objetos circundantes y generar un archivo CSV con dicha información.
-- **Realizar fotometría** sobre cada imagen recortada para obtener datos instrumentales y compararlos con el catálogo.
-- **Realización Curvas de luz** Con los datos Obtenidos se producen la gráfica para la curva de luz de la estrella en cuestión
-
-
+- **Realizar fotometría** en cada imagen recortada para extraer datos instrumentales y compararlos con el catálogo.
+- **Generar Curvas de Luz:** Con los datos obtenidos se produce la gráfica de la curva de luz de la estrella en cuestión.
 
 ## Proceso de Ejecución
 
 1. **Generación del script de descarga y procesamiento:**
-   - Se ejecuta `main.py`, que se encarga de coordinar el proceso.
-   - Se recomienda definir la variable threshold en archivos.ý que es el numero de imagenes a descargar  
-   - Mas adelante se implementaran las demas variables en el json y la creación de la clase estrella, por ahora esa información este por default como algol y threshold como 20
-   - Las curvas de luz se generan automáticamente y se guardan
-   - Si no se tiene buen internet se recomienda tener un valor bajo de threshold ya que la descarga de cada imagén puede tardar un tiempo considerable
+   - Se ejecuta `main.py`, que coordina el proceso.
+   - Se recomienda definir la variable `threshold` en el archivo de rutas, la cual indica el número de imágenes a descargar.
+   - Por ahora, la información se establece por defecto: la estrella es "algol" y el `threshold` es 20.
+   - Las curvas de luz se generan automáticamente y se guardan.
+   - Si la conexión a Internet es lenta, se recomienda usar un `threshold` menor, ya que la descarga de cada imagen puede demorar.
 
 2. **Procesamiento de las imágenes:**
-   - Para cada imagén descargada, si las coordenadas de la estrella coinciden con la imagen, se genera un recorte.
+   - Cada imagen descargada se verifica para ver si contiene la estrella de interés; si es así, se genera un recorte.
    - Los recortes se guardan en la carpeta `imagenes_cortadas` (o `imagenes_guardadas`, según la configuración) y se elimina la imagen original.
-   - Se implementa una comprobación de progreso la función actualizar_progreso() a medida que se generan recortes, se muestra el progreso (por ejemplo, "Progress: 1/5 images downloaded") cada vez que se encuentra un match.  
-   - Una vez alcanzado el límite de recortes definidos, el programa  continúa con la siguiente fase.
-   - Cada vez que se ejecute el programa se leerá desde la última linea que fue un match( que contenía a algol) para no repetir imagenes, si se quiere reiniciar desde el principio cambiar el valor de "start" en el archivo .json
+   - La función `actualizar_progreso()` se invoca cada vez que se encuentra un match, mostrando mensajes de progreso (por ejemplo, "Progress: 1/5 images downloaded").
+   - Una vez alcanzado el límite de recortes definidos, el programa continúa con la siguiente fase.
+   - Cada vez que se ejecuta el programa, se lee desde la última línea que produjo un match (la línea se guarda en un archivo JSON). Para reiniciar la ejecución desde el principio, se debe cambiar el valor de `"start"` en el archivo `info.json`.
 
 3. **Consulta al Catálogo Gaia:**
-   - Se consulta el catálogo Gaia (gaia2edr) para obtener los objetos en un radio de 10 arcmin alrededor de la estrella de interés.
+   - Se consulta el catálogo Gaia (gaia2edr) para obtener objetos en un radio de 10 arcmin alrededor de la estrella de interés.
    - Los datos obtenidos se almacenan en un archivo CSV que contiene la información de los objetos circundantes.
 
 4. **Fotometría y Análisis:**
-   - Para cada imagen se genera un CSV con los "match" entre los objetos detectados en la imagen y los del catálogo Gaia.
-   - Con los recortes de imágenes y el catálogo generado, se ejecuta `rutina_astrometrica()`, la cual realiza la fotometría de cada imagen recortada, produce las tablas y obtiene los datos para crear las imagenes.
-
+   - Para cada imagen se genera un CSV con los “match” entre los objetos detectados y los del catálogo Gaia.
+   - Con los recortes y el catálogo generado se ejecuta `rutina_astrometrica()`, la cual realiza la fotometría de cada imagen recortada, produce las tablas y extrae los datos para generar las curvas de luz.
+   - Los archivos resultantes se organizan en diferentes carpetas:
+     - `imagenes_cortadas`: imágenes recortadas que contienen Algol.
+     - `datos_astrometria_modificados`: archivos CSV con datos fotométricos.
+     - `fits_out`: archivos `.fits.out` generados por la fotometría.
 
 ## Requisitos Previos
 
 - **Archivo de Comandos:**  
-  Es necesario contar con el archivo `comandosCurl` que contiene los comandos necesarios para descargar las imágenes del sector.  
-  Se puede acceder a los datos desde:  
+  Se requiere contar con el archivo `comandosCurl` que contiene los comandos `curl` necesarios para descargar las imágenes del sector.  
+  Accede a los datos desde:  
   [TESS Bulk Downloads](https://archive.stsci.edu/tess/bulk_downloads/bulk_downloads_ffi-tp-lc-dv.html)
 
 - **Acceso a Internet:**  
-  El proyecto requiere acceso a internet para conectarse a la API de TESS y a SIMBAD/Gaia.
+  El proyecto requiere conexión a internet para conectarse a la API de TESS y a los catálogos SIMBAD/Gaia.
 
 ## Dependencias Necesarias
 
 - [**astrocut**](https://astrocut.readthedocs.io/en/latest/astrocut/index.html)
-- [**astropy**](https://www.astropy.org/)  
-- [**seaborn**](https://seaborn.pydata.org/)
+- [**astropy**](https://www.astropy.org/)
+- [**seaborn**](https://seaborn.pydata.org/) *(o matplotlib, según preferencia)*
 - [**numpy**](https://numpy.org/)
 - [**matplotlib**](https://matplotlib.org/)
 - [**photutils**](https://photutils.readthedocs.io/en/stable/)
--se puede editar la linea de seaborn para dejarlo en matplotlib
-- Además se utilizan las librerías estándar de Python: `os`, `glob`, `shutil`, `subprocess` y `pandas` (para la gestión de CSV y DataFrames).
+- [**rich**](https://rich.readthedocs.io/) *(para la visualización avanzada en terminal)*
+- **Librerías estándar de Python:** `os`, `glob`, `shutil`, `subprocess`, `pandas`, `csv`
 
 ## Descripción de los Scripts
 
 1. **main.py:**  
-  Contiene la ejecución de los comandos principales
-2. **astrometria.py:**  
-   Contiene todas las funciones relacionadas a astrometría
+   Contiene la ejecución de los comandos principales.  
+   - Lee el archivo JSON para retomar desde la última línea procesada.  
+   - Ejecuta el script modificado de descarga, que incluye comprobaciones de progreso y actualizaciones de la variable `"start"`.
+   - Finalmente, llama a la función de fotometría.
 
-3. **archivos.py**  
-   -Contiene algunas funciones relacionadas al manejo de archivos 
+2. **astrometria.py:**  
+   Contiene todas las funciones relacionadas con la astrometría y el procesamiento de imágenes, incluyendo:
+   - Recorte de imágenes (`recortes.py`).
+   - Consultas a SIMBAD y Gaia.
+   - Generación de tablas de fotometría y curvas de luz.
+
+3. **archivos.py:**  
+   Contiene funciones para el manejo y movimiento de archivos entre directorios.
 
 4. **limpieza.sh:**  
-   Este script .sh elimina todos los archivos con extensiones `.csv`, `.fits` y `.fits.out` en el directorio principal.  
-   La ruta configurada es `./bash_scripts/limpieza.sh` y es usado para mantener limpio el codigo,es probable que se deba ejecutar el comand chmod para darle acceso como .sh , se ejecuta usando `./limpieza.sh` en la cmd desde el directorio donde se encuentra.
+   Script de shell que elimina archivos con extensiones `.csv`, `.fits` y `.fits.out` en el directorio principal para mantener el proyecto limpio.  
+   - Se recomienda ejecutar `chmod +x bash_scripts/limpieza.sh` para otorgar permisos de ejecución.
+
+5. **Otros archivos en `all_scripts`:**  
+   - **todas_las_rutas.py:** Define todas las rutas del programa.
+   - **archivos.py:** Funciones enfocadas a la modificación y movimiento de archivos.
+   - **astrometria.py:** Funciones relacionadas con el análisis de imágenes y fotometría.
 
 ## Ejecución del Proyecto
+
+Antes de iniciar el proceso principal, se recomienda ejecutar el script `instalacion_librerias.sh` para instalar todas las dependencias.
 
 Para iniciar el proceso, ejecuta:
 
 ```bash
 python3 main.py
+
