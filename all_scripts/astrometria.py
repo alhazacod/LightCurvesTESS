@@ -36,9 +36,11 @@ from astropy.wcs import WCS
 from astropy.table import Table
 from astropy.table.table import QTable
 from astropy.coordinates import SkyCoord
+from astropy.stats import sigma_clipped_stats
 from astropy.time import Time
 from astropy import units as u
 from datetime import datetime
+from rich.progress import Progress
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
@@ -51,7 +53,7 @@ import csv
 import subprocess
 import glob
 import shutil
-
+import time
 class Star:
     def __init__(self, name_estrella, threshold):
         self._name_estrella = name_estrella
@@ -84,6 +86,7 @@ star = Star("algol",arch.threshold)
 estrella= "algol"
 Simbad.add_votable_fields('ids')
 Simbad.add_votable_fields('ids')
+
 #Funciones que realizan cada una de las tareas
 def save_to_csv():
     coordinates = get_coordinates_from_name(estrella)
@@ -125,8 +128,10 @@ def get_coordinates_from_name(name):
     """
     # Agregar el campo votable para obtener identificadores
     Simbad.add_votable_fields('ids')
-    
-    result = Simbad.query_object(name)
+    try:
+      result = Simbad.query_object(name)
+    except Exception as e:
+        print(f"An error occurred: {e}")
     if result is None:
         print(f"No se encontró el objeto {name} en SIMBAD.")
         return None
@@ -157,7 +162,8 @@ def get_coordinates_from_name(name):
         'id': star_id
     }
     return coordinates
-def cortarImagen(name):
+def cortarImagen(coordinates):
+    name = "algol"
     verdad = True
     # Buscar todos los archivos FITS en el directorio actual
     fits_files = glob.glob(ru.route + "*.fits")
@@ -168,14 +174,9 @@ def cortarImagen(name):
     input_file = fits_files[0]
 
     # Consulta a SIMBAD para el objeto
-    result = Simbad.query_object(name)
-    if result is None:
-        print(f"No se encontró el objeto {name} en SIMBAD")
-        return None
+    ra = coordinates['recta ascencion']   # RA en horas/minutos/segundos (o grados, según la salida de SIMBAD)
+    dec = coordinates['declinacion']  # DEC en grados
 
-    # Extraer RA y DEC de la consulta (en formato sexagesimal)
-    ra = result['ra'][0]    # RA en horas/minutos/segundos (o grados, según la salida de SIMBAD)
-    dec = result['dec'][0]  # DEC en grados
 
     # Convertir la cadena a coordenadas usando SkyCoord
     center_coord = SkyCoord(f"{ra} {dec}", unit="deg")
@@ -276,9 +277,12 @@ def Photometry_Data_Table(fits_name, fits_path, catalogo, r, r_in, r_out, center
     quit()
 
 # Se guardan las coordenadas de los objetos de cat�logo que est�n en la im�gen
-  Obj = open(f"Objectlist_{fits_name}.out", "r")
+  nombre_fits_out = f"Objectlist_{fits_name}.out"
+  ruta_fits_out = ru.route+nombre_fits_out
+  Obj = open(nombre_fits_out, "r")
   ListObj = Obj.readlines()
   Obj.close()
+  arch.mover_objeto(ruta_fits_out,ru.fits_out)
   Final_LO = []
   for i in ListObj:
     Final_LO.append(i.split()[:5])
@@ -364,7 +368,7 @@ def Photometry_Data_Table(fits_name, fits_path, catalogo, r, r_in, r_out, center
   phot_table[name_mag + '_mag'].info.format = '%.8g'  
     
   # Error de las Magnitudes Instrumentales
-  from astropy.stats import sigma_clipped_stats
+
   mean, median, std = sigma_clipped_stats(image, sigma=3.0)
   stdev = std
   phot_table[name_mag + '_mag_err'] = 1.0857 * np.sqrt(abs(final_sum)    /epadu + area_aper*stdev**2 )/abs(final_sum)
@@ -482,8 +486,10 @@ def creacionTablasCsv(filtro_final):
       final_obs_table[j.colnames[7] + '_' + str(counter//3)] = j[j.colnames[7]]
       final_obs_table[j.colnames[11] + '_' + j.colnames[6] + '_' + str(counter//3)] = j[j.colnames[11]]
       counter += 1
-      
-    final_obs_table.write(f'./Algol_{foc}.csv', overwrite=True)    
+    estrella_csv = f"Algol_{foc}.csv"
+    estrella_csv_ruta = f"{ru.route}Algol_{foc}.csv"
+    final_obs_table.write(estrella_csv_ruta, overwrite=True) 
+    arch.mover_objeto(estrella_csv,ru.csv_out)   
 def interseccionFiltros(focus_object,filtro_final):
   '''
   Esta función se encarga de realizar la intersección de los objetos que estan en los tres filtros, al terminar elimina los datos por fuera de los tres libros y elimina las tablas vacias pertenecientes a allTables
@@ -529,12 +535,16 @@ def creacionTablasFotometricas():
   r_in = 12 #Radio interno anillo cielo
   r_out = 14 #Radio externo
   all_tables = []
-  for k in range(len(archivos)):
+  valor_total = len(archivos)
+  for k in range(valor_total):
+    time.sleep(1)
+    subprocess.run("clear", shell=True, check=True, text=True)
+    print(f"se han analizado {k}/{valor_total} imagenes")
+    arch.barra_de_progreso(k,valor_total,"Analizando...","green")
     fits_path = archivos[k]
     fits_name = nombres[k]
     photom = Photometry_Data_Table(fits_name, fits_path, catalogo, r=r, r_in=r_in, r_out=r_out, center_box_size=center_box_size)
     if photom is not None:
-    
       all_tables.append(photom)
   return(all_tables)
 def curvas_de_luz_estrella():
@@ -544,12 +554,14 @@ def curvas_de_luz_estrella():
     directorio = os.getcwd()
     if os.path.basename(directorio) != nombre_carpeta:
         os.chdir("./csv_out")
-    
+    global tiempo
+    global magnitud
     fechas = []
     magnitudes = []
-    
+  
+    magnitud = magnitudes
     # Itera por todos los archivos en el directorio actual (csv_out)
-    for archivo in os.listdir("./"):
+    for archivo in os.listdir(ru.route):
         if archivo.endswith(".csv"):
             with open(archivo, mode='r', newline='', encoding='utf-8') as archivo_csv:
                 lector = csv.reader(archivo_csv)
@@ -559,62 +571,49 @@ def curvas_de_luz_estrella():
                     if fila[0] == '239863001382455424':
                         fechas.append(fila[5])
                         magnitudes.append(float(fila[3]))
-    
+    tiempo = fechas
     print(f"Datos agregados correctamente, actualmente se cuenta con {len(magnitudes)} datos")
     
     # Regresa al directorio padre
     os.chdir("..")
+    fechas_clean = [Time(f, format='isot', scale='utc').jd for f in tiempo]
+    fechas_clean_2 = [datetime.strptime(f, "%Y-%m-%dT%H:%M:%S.%f") for f in tiempo]
     
-    # Convertir las cadenas de fecha a objetos datetime
-    fechas_clean = [Time(f, format='isot', scale='utc').jd for f in fechas]
-    # Create the DataFrame using the formatted hours and the magnitudes
-    data_to_plot = pd.DataFrame({'fechas': fechas_clean, 'magnitudes': magnitudes})
-    data_to_plot.sort_values(by='fechas', inplace=True)
-    print( data_to_plot['fechas'])    
     flujos=[]
-    for i in magnitudes:
-      flujos.append(10**(-i/2.5))
-    data_to_plot['magnitudes'] =flujos
-    apply_filter = True
-    if apply_filter:
-       
-      data_to_plot = data_to_plot.iloc[19:]
-      # Convert the 'fechas' column to a string in HHMM format and then to an integer for comparison.
+    for i in magnitud:
+        flujos.append(10**(-i/2.5))
     
-    # Sort the DataFrame by the 'fechas' column while keeping the magnitudes associated correctly
-    # data_to_plot.sort_values(by='fechas', inplace=True)
-    # Create a figure with a custom size
-# Plot the data with line and dot markers.
-# Here, 'data_to_plot' is assumed to be a DataFrame that contains the columns 'fechas' and 'magnitudes'.
-    sns.lineplot(
-    x=data_to_plot['fechas'], 
-    y=data_to_plot['magnitudes'], 
-    marker='o',           # Use circle markers at each data point
-    markersize=6,
-    sort=True, 
-    err_style='band', 
-    ci='deprecated', 
-    label='Magnitudes'
-)
-    sns.set_style("dark")
+    plt.rcParams.update({
+        'axes.facecolor': '#121212',  # Fondo del área del gráfico (gris oscuro)
+        'figure.facecolor': '#121212',  # Fondo de la figura (gris oscuro)
+        'font.size': 10 ,  # Tamaño de la fuente
+        'axes.labelcolor': 'white',  # Color de las etiquetas de los ejes (blanco)
+        'xtick.color': 'white',  # Color de las etiquetas en el eje X (blanco)
+        'ytick.color': 'white',  # Color de las etiquetas en el eje Y (blanco)
+        'axes.edgecolor': 'white',  # Color de los bordes del gráfico (blanco)
+        'grid.color': '#404040',  # Color de la cuadrícula (gris claro)
+        'grid.linestyle': '--',  # Estilo de la cuadrícula (líneas discontinuas)
+        'grid.alpha': 0.3,  # Transparencia de la cuadrícula (más suave)
+        'lines.color': 'cyan',  # Color de las líneas (cian brillante)
+        'lines.linewidth': 2,  # Ancho de las líneas
+        'axes.titlecolor': 'white',  # Color del título de los ejes (blanco)
+    })
 
-    plt.figure(figsize=(10, 7))
-    plt.plot(data_to_plot['fechas'],data_to_plot['magnitudes'], marker='o', linestyle='-',color="black")
-    plt.xticks(rotation=45)  # Rotar etiquetas del eje X para mejor visibilidad
-    plt.xlabel("Fecha y Hora")
-    plt.ylabel("Valores")
-    plt.title("Gráfico de curvas de luz para algol")
-    plt.grid()
+    alto,ancho=4,8
+    plt.figure(figsize=(ancho, alto))  
+    plt.scatter(fechas_clean[:], flujos[:], linewidth=1)
+    plt.xlabel("Tiempo Juliano",fontsize=10,labelpad=20)
+    plt.ylabel("Flujo",fontsize=10,labelpad=20) 
+    plt.title("----------------Curva de luz para algol----------------".upper(), fontsize=10,pad=10)
     plt.savefig("figura.png")
 def rutina_astrometica():
+
   array_de_tablas = creacionTablasFotometricas()
   ## Se imprime la tabla en un archivo de texto plano
   print(f'Se tienen {len(array_de_tablas)} tablas de las imagenes .fits')
   focus_object,filtro_final = adicionFiltros(array_de_tablas)
   filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
   creacionTablasCsv(filtro_resultado)
-  arch.mover_objetos(".csv","csv_out")#Mueve las tablas generadas
-  arch.mover_objetos(".fits.out","fits_out")#Como el codigo genera tablas .fits.out se mueven a la carpeta fits_out pero se pueden borrar en vez de moverlos
   curvas_de_luz_estrella()#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
 def is_gaia_database_fallen():
     server_status = "Server is up"
@@ -635,5 +634,6 @@ def is_gaia_database_fallen():
 
    
 if __name__ == "__main__":
+   
     rutina_astrometica()
 

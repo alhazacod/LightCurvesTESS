@@ -4,6 +4,7 @@ from rich.live import Live
 from rich.console import Console
 from rich.text import Text
 from rich.progress import Progress
+from time import sleep
 import rich 
 import os
 import subprocess
@@ -12,15 +13,13 @@ import glob
 import shutil
 import sys
 
-from time import sleep
-
 
 
 # Variable global para la ruta principal de la organización de carpetas
 route = r.route
 imagenes_cortadas = r.imagenes_cortadas
 archivo_catalogo = r.archivo_catalogo
-threshold = 1000#variable para cambiar la cantidad de recortes que se guardan
+threshold = 1500#variable para cambiar la cantidad de recortes que se guardan
 def contar_fits():
     """
     Cuenta cuántos archivos .fits hay en el directorio 'route/imagenes_cortadas'.
@@ -45,7 +44,7 @@ def mover_objetos(tipo_de_archivo, directorio_de_destino):
     # - Busca en el directorio actual todos los archivos cuyo nombre termine en tipo_de_archivo.
     # - Excluye (con !) el archivo 'datos_gaia3edr.csv'.
     # - Para cada archivo encontrado se ejecuta el comando mv para moverlo al directorio de destino.
-    comando = f"find ./ -type f -name '*{tipo_de_archivo}' ! -name 'datos_gaia3edr.csv' -exec mv {{}} \"{dest_dir}\" \\;"
+    comando = f"find {r.route} -type f -name '*{tipo_de_archivo}' ! -name 'datos_gaia3edr.csv' -exec mv {{}} \"{dest_dir}\" \\;"
     
     print(f"Moviendo los archivos tipo {tipo_de_archivo} a {directorio_de_destino}...")
     resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
@@ -66,20 +65,38 @@ def mover_objeto(nombre_de_archivo, directorio_de_destino):
     source_file = nombre_de_archivo
     # Use os.path.join to construct the destination directory path.
     destination_dir = os.path.join(route, directorio_de_destino)
-    
     # Create the destination directory if it doesn't exist.
     if not os.path.exists(destination_dir):
         os.makedirs(destination_dir)
     
     # Construct the full destination path for the file.
     destination_file = os.path.join(destination_dir, os.path.basename(source_file))
-    
+    if os.path.exists(destination_file):
+         os.remove(destination_file)   
     # Move the file from the source to the destination.
     try:
         shutil.move(source_file, destination_file)
         print(f"File '{source_file}' has been moved to '{destination_file}'")
     except Exception as e:
         print(f"An error occurred: {e}")
+def ejecutar_sh(archivo_a_ejecutar):
+    '''La función ejecutar_sh ejecuta todos los comandos de un archivos 
+        recibe un archivo .txt o .sh'''
+    with open(archivo_a_ejecutar, "r", encoding="utf-8") as archivo_leido:
+            for i, linea in enumerate(archivo_leido):
+                linea = linea.strip()
+                subprocess.run(linea,shell=True, check=True, text=True)
+def barra_de_progreso(actual,valor_total,texto_de_barra="Donwloading...",color="red"):
+     progress = Progress()
+     texto_barra_completo = f"[{color}]{texto_de_barra}"
+     with progress:
+                # Create a task with total equal to the threshold.
+                task = progress.add_task(texto_barra_completo, total=valor_total)
+                # Update the task to reflect the current count.
+                progress.update(task, completed=actual)
+                # Brief pause to allow the progress bar to be visible.
+                import time
+                time.sleep(0.5)    
 def ejecutar_curl_desde_archivo():
     """
     Executes curl commands from a shell file one by one, starting from the line number
@@ -87,6 +104,7 @@ def ejecutar_curl_desde_archivo():
     it calls astrom.cortarImagen(name) to process the downloaded image.
     If that function returns True, the JSON file is updated with the current line number.
     """
+    coordenadas = astrom.get_coordinates_from_name("algol")
     info_json = "info.json"
     # Read the starting line from the JSON file
     try:
@@ -115,8 +133,9 @@ def ejecutar_curl_desde_archivo():
                 try:
                  # Update the live display with the current status.
                         sleep(1)
+                        with open(info_json, "w") as f_out:
+                            json.dump({"start": i}, f_out)
                         subprocess.run("clear", shell=True, check=True, text=True)
-                     
                         actualizar_progreso(True)
                         subprocess.run(linea, shell=True, check=True, text=True)
                         
@@ -125,13 +144,14 @@ def ejecutar_curl_desde_archivo():
                 
                 # Process the downloaded image by calling your function
         
-                match = astrom.cortarImagen("algol")
+                match = astrom.cortarImagen(coordenadas)
                 if match:
                     value = actualizar_progreso(False)
                     # If a match is found, update the JSON with the current line number.
                     if value >= threshold:
                         break
                     try:
+               
                         with open(info_json, "w") as f_out:
                             json.dump({"start": i}, f_out)
                         print(f"Updated 'start' in {info_json} to {i}.")
@@ -139,7 +159,6 @@ def ejecutar_curl_desde_archivo():
                         print(f"Error updating {info_json}: {e}")
     else:
         print("ya se cuenta con todas las imagenes deseadas")
-
 def actualizar_progreso(value):
     """
     Counts the number of .fits files in the 'imagenes_cortadas' directory and returns that count.
@@ -149,18 +168,8 @@ def actualizar_progreso(value):
     text = Text( f"Progreso: {current}/{threshold} images downloaded."
     )
     text.stylize("bold blue on green")
-    
     rich.print(text)
-    if value:
-        progress = Progress()
-        with progress:
-            # Create a task with total equal to the threshold.
-            task = progress.add_task("[red]Downloading...", total=threshold)
-            # Update the task to reflect the current count.
-            progress.update(task, completed=current)
-            # Brief pause to allow the progress bar to be visible.
-            import time
-            time.sleep(0.5)
+    barra_de_progreso(current,threshold)
     return current
 
 
