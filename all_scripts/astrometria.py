@@ -19,6 +19,7 @@
 
 
 #Imports #
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from photutils.centroids import centroid_sources, centroid_com
 from photutils.aperture import CircularAperture
 from photutils.aperture import CircularAnnulus
@@ -100,7 +101,9 @@ def save_to_csv():
     print(f"Numero de filas: {rows}, Numero de columnas: {columns}")
     arch.mover_objeto(nombre_archivo,directorio)
 #Se define la función que toma las coordenadas y hace el query en gaia
-def query_gaia(ra, dec, radius_arcmin=1):
+def query_gaia(coordinates, radius_arcmin=1):
+    ra = coordinates['recta ascencion']   # RA en horas/minutos/segundos (o grados, según la salida de SIMBAD)
+    dec = coordinates['declinacion'] 
     radius_deg = radius_arcmin / 60.0  # Conversión: 1 arcmin = 1/60 grados
     try:
         # Realizar la consulta en Gaia
@@ -162,16 +165,14 @@ def get_coordinates_from_name(name):
         'id': star_id
     }
     return coordinates
-def cortarImagen(coordinates):
+def cortarImagen(coordinates,input_file):
     name = "algol"
     verdad = True
     # Buscar todos los archivos FITS en el directorio actual
-    fits_files = glob.glob(ru.route + "*.fits")
-    if not fits_files:
+    if not input_file:
         print("No se ha encontrado ninguna imagen FITS")
-        return None
-
-    input_file = fits_files[0]
+        return None  
+   
 
     # Consulta a SIMBAD para el objeto
     ra = coordinates['recta ascencion']   # RA en horas/minutos/segundos (o grados, según la salida de SIMBAD)
@@ -220,6 +221,20 @@ def cortarImagen(coordinates):
         print(f"Error al borrar la imagen {input_file}: {e}") # Borrar el archivo original utilizado para el recorte
     print(f"Imagen recortada guardada en: {dest_file}")
     return verdad,dest_file
+def is_in_pic(w, image, ra, dec):
+    '''
+     Funcion que ajusta los objetos del catalogo a solo aquellos que podr�an estar en la im�gen
+    '''
+    ra_max, dec_max = w.array_index_to_world_values(0,0)
+    ra_min, dec_min = w.array_index_to_world_values(image.shape[0], image.shape[1])
+    if ra_min > ra_max:
+      ra_min = w.array_index_to_world_values(0,0)[0]
+      ra_max = w.array_index_to_world_values(image.shape[0], image.shape[1])[0]
+    if dec_min > dec_max:
+      dec_min = w.array_index_to_world_values(0,0)[1]
+      dec_max = w.array_index_to_world_values(image.shape[0], image.shape[1])[1]
+      
+    return (ra < ra_max) & (ra > ra_min) & (dec < dec_max) & (dec >   dec_min)
 def Photometry_Data_Table(fits_name, fits_path, catalogo, r, r_in, r_out, center_box_size, *args):
   '''
   Esta función se encarga de añadir la información astrometrica de la imagén fits como fits_data
@@ -248,18 +263,8 @@ def Photometry_Data_Table(fits_name, fits_path, catalogo, r, r_in, r_out, center
 
   image=fits_data
 
-# Funcion que ajusta los objetos del catalogo a solo aquellos que podr�an estar en la im�gen
-  def is_in_pic(w, image, ra, dec):
-    ra_max, dec_max = w.array_index_to_world_values(0,0)
-    ra_min, dec_min = w.array_index_to_world_values(image.shape[0], image.shape[1])
-    if ra_min > ra_max:
-      ra_min = w.array_index_to_world_values(0,0)[0]
-      ra_max = w.array_index_to_world_values(image.shape[0], image.shape[1])[0]
-    if dec_min > dec_max:
-      dec_min = w.array_index_to_world_values(0,0)[1]
-      dec_max = w.array_index_to_world_values(image.shape[0], image.shape[1])[1]
-      
-    return (ra < ra_max) & (ra > ra_min) & (dec < dec_max) & (dec >   dec_min)
+
+ 
   NewListO = open(f"Objectlist_{fits_name}.out", "w")
   # Contador de objetos de cat�logo que est�n en la im�gen
   object_counter = 0
@@ -309,13 +314,13 @@ def Photometry_Data_Table(fits_name, fits_path, catalogo, r, r_in, r_out, center
         ID[i] = ID[i] + str(m)
 
 # Se imprime en consola una previsualizacion de como es el nuevo catalogo reducido.
-  np.set_printoptions(suppress=True, formatter={'float_kind':'{:f}'    .format})
-  print(f"\nSu catalogo reducido es (filas {len(Final_List)}):\n ")
-  print("----RA---- ---DEC--- -----x-----  -----y----- -----ID-------\n")
-  print(Final_List[0],ID[0])
-  print("    ...       ...         ...          ...         ...        \n")
-  print(Final_List[len(Final_List)-1],ID[len(Final_List)-1])
-  print("---------- --------- ------------  ----------- -------------\n")
+  #np.set_printoptions(suppress=True, formatter={'float_kind':'{:f}'    .format})
+  #print(f"\nSu catalogo reducido es (filas {len(Final_List)}):\n ")
+  #print("----RA---- ---DEC--- -----x-----  -----y----- -----ID-------\n")
+  #print(Final_List[0],ID[0])
+  #print("    ...       ...         ...          ...         ...        \n")
+  #print(Final_List[len(Final_List)-1],ID[len(Final_List)-1])
+  #print("---------- --------- ------------  ----------- -------------\n")
 
 # Se extraen los valores X y Y
   _, _, x_init, y_init = zip(*Final_List)
@@ -518,6 +523,8 @@ def interseccionFiltros(focus_object,filtro_final):
   for foc in filtro_final.keys():
     let = len(filtro_final[foc])
   return filtro_final
+# Module-level helper function (do not nest this inside creacionTablasFotometricas)
+
 def creacionTablasFotometricas():
   '''
   Esta función crea los datos de todas las fotos que se encuentran en imagenes cortadas. Realizando la fotometría para todas las fotos *.fits
@@ -609,11 +616,11 @@ def curvas_de_luz_estrella():
 def rutina_astrometica():
 
   array_de_tablas = creacionTablasFotometricas()
-  ## Se imprime la tabla en un archivo de texto plano
-  print(f'Se tienen {len(array_de_tablas)} tablas de las imagenes .fits')
   focus_object,filtro_final = adicionFiltros(array_de_tablas)
   filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
   creacionTablasCsv(filtro_resultado)
+  arch.mover_objetos(".fits.out",ru.fits_out)
+  
   curvas_de_luz_estrella()#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
 def is_gaia_database_fallen():
     server_status = "Server is up"
