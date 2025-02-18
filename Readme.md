@@ -14,16 +14,16 @@ Este proyecto automatiza el procesamiento de imágenes tomadas por TESS. El fluj
 
 1. **Generación del script de descarga y procesamiento:**
    - Se ejecuta `main.py`, que coordina el proceso.
-   - Se recomienda definir la variable `threshold` en el archivo de rutas, la cual indica el número de imágenes a descargar.
-   - Por ahora, la información se establece por defecto: la estrella es "algol" y el `threshold` es 20.
+   - Por ahora, la información se establece por defecto: la estrella es "algol" definida en main.py.
+   - Al ejecutar main.py se crea un directorio con nombre de la estrella donde se realizan todos los procesos de la estrella actual.
    - Las curvas de luz se generan automáticamente y se guardan.
-   - Si la conexión a Internet es lenta, se recomienda usar un `threshold` menor, ya que la descarga de cada imagen puede demorar.
+   - Si la conexión a Internet es lenta, se recomienda usar un `threshold` menor, ya que la descarga de cada imagen puede demorar, entonces menos puntos es mejor para una latencia baja.
 
 2. **Procesamiento de las imágenes:**
    - Cada imagen descargada se verifica para ver si contiene la estrella de interés; si es así, se genera un recorte.
-   - Los recortes se guardan en la carpeta `imagenes_cortadas` (o `imagenes_guardadas`, según la configuración) y se elimina la imagen original.
-   - La función `actualizar_progreso()` se invoca cada vez que se encuentra un match, mostrando mensajes de progreso (por ejemplo, "Progress: 1/5 images downloaded").
-   - Una vez alcanzado el límite de recortes definidos, el programa continúa con la siguiente fase.
+   - Los recortes se guardan en la carpeta `imagenes_cortadas` (o `imagenes_guardadas`, según la configuración) y se elimina la imagen original para la respectiva estrella.
+   - La función `actualizar_progreso()` se invoca cada vez que se encuentra un match, mostrando mensajes de progreso (por ejemplo, "Progress: 100/1700 images descargadas y también cuenta el numero de imagenes encontradas que contienen a la estrella").
+   - Una vez descargadas todas las imagenes, el programa continúa con la siguiente fase.
    - Cada vez que se ejecuta el programa, se lee desde la última línea que produjo un match (la línea se guarda en un archivo JSON). Para reiniciar la ejecución desde el principio, se debe cambiar el valor de `"start"` en el archivo `info.json`.
 
 3. **Consulta al Catálogo Gaia:**
@@ -34,9 +34,10 @@ Este proyecto automatiza el procesamiento de imágenes tomadas por TESS. El fluj
    - Para cada imagen se genera un CSV con los “match” entre los objetos detectados y los del catálogo Gaia.
    - Con los recortes y el catálogo generado se ejecuta `rutina_astrometrica()`, la cual realiza la fotometría de cada imagen recortada, produce las tablas y extrae los datos para generar las curvas de luz.
    - Los archivos resultantes se organizan en diferentes carpetas:
-     - `imagenes_cortadas`: imágenes recortadas que contienen Algol.
+     - `imagenes_cortadas`: imágenes recortadas que contienen la estrella.
      - `datos_astrometria_modificados`: archivos CSV con datos fotométricos.
      - `fits_out`: archivos `.fits.out` generados por la fotometría.
+     - `bash_scripts`: archivos `.txt` que contienen los archivos curl.
 
 ## Requisitos Previos
 
@@ -81,7 +82,7 @@ Este proyecto automatiza el procesamiento de imágenes tomadas por TESS. El fluj
    - Se recomienda ejecutar `chmod +x bash_scripts/limpieza.sh` para otorgar permisos de ejecución.
 
 5. **Otros archivos en `all_scripts`:**  
-   - **todas_las_rutas.py:** Define todas las rutas del programa.
+   - **todas_las_rutas.py:** Define todas las rutas base del programa.
    - **archivos.py:** Funciones enfocadas a la modificación y movimiento de archivos.
    - **astrometria.py:** Funciones relacionadas con el análisis de imágenes y fotometría.
 
@@ -94,3 +95,10 @@ Para iniciar el proceso, ejecuta:
 ```bash
 python3 main.py
 
+```
+Escoge una de las opciones según el caso.
+## Mejoras a implementar 
+ - Implementar codigo de request para descargar automáticamente los sectores según la estrella
+ - Cambiar la función de get_json y call_json para que incluyan cada estrella creada y tengan las propiedades de cada estrella utilizando la clase estrella
+ - Cuando se revisita el programa buscar en el json para saber si una extrella existe y mostrar las opciones disponibles de estrella o simplemente consultar la información de la respectiva estrella.
+ - Crear una interfaz gráfica y/o generar el input para almacenar los valores de la clase estrella

@@ -81,21 +81,20 @@ class Star:
 
 #variables globales
 # Directorios definidos en archivos.py
-carpeta = ru.imagenes_cortadas
+#carpeta = arch.imagenes_cortadas
 center_box_size=3  
 star = Star("algol",arch.threshold)
-estrella= "algol"
 Simbad.add_votable_fields('ids')
 Simbad.add_votable_fields('ids')
 
 #Funciones que realizan cada una de las tareas
-def save_to_csv():
+def save_to_csv(rutas,estrella):
     coordinates = get_coordinates_from_name(estrella)
     print(f"las coordenadas de {estrella} son {coordinates}")
     queryResult = query_gaia(coordinates)  
     data = queryResult.to_pandas()
-    nombre_archivo = 'datos_gaia3edr.csv'
-    directorio = "datos_astrometria_modificados"
+    nombre_archivo = f'{estrella}_datos_gaiaedr.csv'
+    directorio = rutas['archivo_catalogo']
     data.to_csv(nombre_archivo,index = False, header=False,sep=" ")
     rows, columns = data.shape
     print(f"Numero de filas: {rows}, Numero de columnas: {columns}")
@@ -165,8 +164,8 @@ def get_coordinates_from_name(name):
         'id': star_id
     }
     return coordinates
-def cortarImagen(coordinates,input_file):
-    name = "algol"
+def cortarImagen(coordinates,input_file,rutas,estrella):
+    name = estrella
     verdad = True
     # Buscar todos los archivos FITS en el directorio actual
     if not input_file:
@@ -199,7 +198,7 @@ def cortarImagen(coordinates,input_file):
     print("Se encontró un match, realizando recorte")
     
     # Crear el directorio de destino si no existe
-    dest_dir = ru.imagenes_cortadas
+    dest_dir = rutas['imagenes_cortadas']
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
 
@@ -235,7 +234,7 @@ def is_in_pic(w, image, ra, dec):
       dec_max = w.array_index_to_world_values(image.shape[0], image.shape[1])[1]
       
     return (ra < ra_max) & (ra > ra_min) & (dec < dec_max) & (dec >   dec_min)
-def Photometry_Data_Table(fits_name, fits_path, catalogo, r, r_in, r_out, center_box_size, *args):
+def Photometry_Data_Table(rutas,fits_name, fits_path, catalogo, r, r_in, r_out, center_box_size, *args):
   '''
   Esta función se encarga de añadir la información astrometrica de la imagén fits como fits_data
   '''
@@ -283,11 +282,11 @@ def Photometry_Data_Table(fits_name, fits_path, catalogo, r, r_in, r_out, center
 
 # Se guardan las coordenadas de los objetos de cat�logo que est�n en la im�gen
   nombre_fits_out = f"Objectlist_{fits_name}.out"
-  ruta_fits_out = ru.route+nombre_fits_out
+  ruta_fits_out =ru.route+nombre_fits_out
   Obj = open(nombre_fits_out, "r")
   ListObj = Obj.readlines()
   Obj.close()
-  arch.mover_objeto(ruta_fits_out,ru.fits_out)
+  arch.mover_objeto(ruta_fits_out,rutas['fits_out'])
   Final_LO = []
   for i in ListObj:
     Final_LO.append(i.split()[:5])
@@ -395,9 +394,10 @@ def Photometry_Data_Table(fits_name, fits_path, catalogo, r, r_in, r_out, center
   phot_table.remove_rows(index_nan)
   filas = len(phot_table)
   return phot_table   
-def cantidad_de_fits(archive):
+def cantidad_de_fits(archive,rutas):
   # Impresion de los archivos encontados y guardado de nombre del archivo en lista
   #print("\n Archivos Encontrados")
+  carpeta = rutas['imagenes_cortadas']
   nombres = []
   for j in archive:
     if carpeta in j:
@@ -471,7 +471,7 @@ def adicionFiltros(all_tables):
         filtro_final[ob].append(n.copy())
   # Ejemplo: filtro_final = {'SA98':[tabla1,tabla2,tabla3,..], ... , 'SA92':[tabla1,tabla2,tabla3,..]}
   return object_of_focus,filtro_final
-def creacionTablasCsv(filtro_final):
+def creacionTablasCsv(filtro_final,rutas,estrella):
   '''
   Esta función se encarga de crear todas las tablas .csv que seran usadas para la producción de curvas de luz para algol
   '''
@@ -491,10 +491,10 @@ def creacionTablasCsv(filtro_final):
       final_obs_table[j.colnames[7] + '_' + str(counter//3)] = j[j.colnames[7]]
       final_obs_table[j.colnames[11] + '_' + j.colnames[6] + '_' + str(counter//3)] = j[j.colnames[11]]
       counter += 1
-    estrella_csv = f"Algol_{foc}.csv"
-    estrella_csv_ruta = f"{ru.route}Algol_{foc}.csv"
+    estrella_csv = f"{estrella}_{foc}.csv"
+    estrella_csv_ruta = f"{rutas['csv_out']}{estrella}_{foc}.csv"
     final_obs_table.write(estrella_csv_ruta, overwrite=True) 
-    arch.mover_objeto(estrella_csv,ru.csv_out)   
+    #arch.mover_objeto(estrella_csv,rutas['csv_out'])   
 def interseccionFiltros(focus_object,filtro_final):
   '''
   Esta función se encarga de realizar la intersección de los objetos que estan en los tres filtros, al terminar elimina los datos por fuera de los tres libros y elimina las tablas vacias pertenecientes a allTables
@@ -525,16 +525,16 @@ def interseccionFiltros(focus_object,filtro_final):
   return filtro_final
 # Module-level helper function (do not nest this inside creacionTablasFotometricas)
 
-def creacionTablasFotometricas():
+def creacionTablasFotometricas(rutas):
   '''
   Esta función crea los datos de todas las fotos que se encuentran en imagenes cortadas. Realizando la fotometría para todas las fotos *.fits
   '''
 
   # Busqueda de los archivos .fits
-  archivos = glob.glob(ru.imagenes_cortadas + '*.fits')
+  archivos = glob.glob(rutas['imagenes_cortadas'] + '*.fits')
   #Definición de catalogos
-  nombres = cantidad_de_fits(archivos)      
-  ra,dec,id = lectura_de_catalogo(ru.archivo_catalogo)
+  nombres = cantidad_de_fits(archivos,rutas)      
+  ra,dec,id = lectura_de_catalogo(rutas['archivo_catalogo'])
   catalogo_decimal = SkyCoord(ra, dec, unit=( u.degree))
   catalogo = list(zip(catalogo_decimal.ra.deg,catalogo_decimal.dec.deg,id))
   # Definición de parámetros fotométricos #
@@ -550,17 +550,17 @@ def creacionTablasFotometricas():
     arch.barra_de_progreso(k,valor_total,"Analizando...","green")
     fits_path = archivos[k]
     fits_name = nombres[k]
-    photom = Photometry_Data_Table(fits_name, fits_path, catalogo, r=r, r_in=r_in, r_out=r_out, center_box_size=center_box_size)
+    photom = Photometry_Data_Table(rutas,fits_name, fits_path, catalogo, r=r, r_in=r_in, r_out=r_out, center_box_size=center_box_size)
     if photom is not None:
       all_tables.append(photom)
   return(all_tables)
-def curvas_de_luz_estrella():
+def curvas_de_luz_estrella(rutas):
     nombre_carpeta = "csv_out"
 
     # Obtiene el directorio actual de trabajo y cambia al directorio csv_out si es necesario
     directorio = os.getcwd()
     if os.path.basename(directorio) != nombre_carpeta:
-        os.chdir("./csv_out")
+        os.chdir(rutas['csv_out'])
     global tiempo
     global magnitud
     fechas = []
@@ -613,15 +613,15 @@ def curvas_de_luz_estrella():
     plt.ylabel("Flujo",fontsize=10,labelpad=20) 
     plt.title("----------------Curva de luz para algol----------------".upper(), fontsize=10,pad=10)
     plt.savefig("figura.png")
-def rutina_astrometica():
+def rutina_astrometica(rutas,estrella):
 
-  array_de_tablas = creacionTablasFotometricas()
+  array_de_tablas = creacionTablasFotometricas(rutas)
   focus_object,filtro_final = adicionFiltros(array_de_tablas)
   filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
-  creacionTablasCsv(filtro_resultado)
-  arch.mover_objetos(".fits.out",ru.fits_out)
+  creacionTablasCsv(filtro_resultado,rutas,estrella)
+  arch.mover_objetos(".fits.out",rutas['fits_out'])
   
-  curvas_de_luz_estrella()#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
+  curvas_de_luz_estrella(rutas)#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
 def is_gaia_database_fallen():
     server_status = "Server is up"
     try:
