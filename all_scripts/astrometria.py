@@ -19,12 +19,12 @@
 
 
 #Imports #
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from photutils.centroids import centroid_sources, centroid_com
 from photutils.aperture import CircularAperture
 from photutils.aperture import CircularAnnulus
 from photutils.aperture import aperture_photometry
 from photutils.utils import calc_total_error
+from scipy.signal import periodogram
 from scipy.stats import mode
 from astrocut.exceptions import InvalidQueryError
 from astroquery.simbad import Simbad
@@ -38,6 +38,7 @@ from astropy.table import Table
 from astropy.table.table import QTable
 from astropy.coordinates import SkyCoord
 from astropy.stats import sigma_clipped_stats
+from astropy.timeseries import LombScargle
 from astropy.time import Time
 from astropy import units as u
 from datetime import datetime
@@ -83,7 +84,7 @@ class Star:
 # Directorios definidos en archivos.py
 #carpeta = arch.imagenes_cortadas
 center_box_size=3  
-star = Star("algol",arch.threshold)
+#star = Star("algol",arch.threshold)
 Simbad.add_votable_fields('ids')
 Simbad.add_votable_fields('ids')
 
@@ -98,7 +99,7 @@ def save_to_csv(rutas,estrella):
     data.to_csv(nombre_archivo,index = False, header=False,sep=" ")
     rows, columns = data.shape
     print(f"Numero de filas: {rows}, Numero de columnas: {columns}")
-    arch.mover_objeto(nombre_archivo,directorio)
+    arch.mover_objeto(nombre_archivo,directorio,rutas)
 #Se define la función que toma las coordenadas y hace el query en gaia
 def query_gaia(coordinates, radius_arcmin=1):
     ra = coordinates['recta ascencion']   # RA en horas/minutos/segundos (o grados, según la salida de SIMBAD)
@@ -117,6 +118,19 @@ def query_gaia(coordinates, radius_arcmin=1):
     except Exception as e:
         print("Error en la consulta:", e)
         return None
+#Obtener el ID de gaia
+def gaia_ids(estrella):
+    Simbad.add_votable_fields("ids")
+    result = Simbad.query_object(estrella)
+    if result is not None:
+        ids = result["ids"][0].split("|")
+        for id_ in ids:
+            if "Gaia DR2" in id_:
+                global gaia_id
+                gaia_id = int(id_.replace("Gaia DR2 ", ""))
+                print(f"🔍 Gaia DR2 ID de {estrella}: {gaia_id}")        
+    else:
+        return f"No se encontró el objeto '{estrella}' en Simbad."
 def get_coordinates_from_name(name):
     """
     Obtiene las coordenadas RA y DEC de un objeto por su nombre usando Simbad, 
@@ -164,26 +178,26 @@ def get_coordinates_from_name(name):
         'id': star_id
     }
     return coordinates
-def cortarImagen(coordinates,input_file,rutas,estrella):
+def cortarImagen(coordinates, input_file, rutas, estrella):
+    """
+    Processes a downloaded FITS file by cutting it to focus on the specified star.
+    It searches for the input file in rutas['imagenes'] and, after cutting, moves the result
+    to rutas['imagenes_cortadas']. Then, the original file is deleted.
+    """
     name = estrella
     verdad = True
-    # Buscar todos los archivos FITS en el directorio actual
     if not input_file:
         print("No se ha encontrado ninguna imagen FITS")
         return None  
-   
 
-    # Consulta a SIMBAD para el objeto
-    ra = coordinates['recta ascencion']   # RA en horas/minutos/segundos (o grados, según la salida de SIMBAD)
-    dec = coordinates['declinacion']  # DEC en grados
-
-
-    # Convertir la cadena a coordenadas usando SkyCoord
+    # Use the coordinates provided.
+    ra = coordinates['recta ascencion']
+    dec = coordinates['declinacion']
     center_coord = SkyCoord(f"{ra} {dec}", unit="deg")
     cutout_size = [1000, 1000]
 
     try:
-        # Realizar el recorte utilizando fits_cut
+        # Perform the cutout using fits_cut
         cutout_file = fits_cut(input_file, center_coord, cutout_size, single_outfile=True)
     except InvalidQueryError:
         os.remove(input_file)
@@ -197,29 +211,29 @@ def cortarImagen(coordinates,input_file,rutas,estrella):
 
     print("Se encontró un match, realizando recorte")
     
-    # Crear el directorio de destino si no existe
+    # Use the output directory from rutas for the recut images.
     dest_dir = rutas['imagenes_cortadas']
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
 
-    # Convertir las rutas a absolutas
     cutout_file_abs = os.path.abspath(cutout_file)
     dest_dir_abs = os.path.abspath(dest_dir)
 
-    # Generar un nombre secuencial para el archivo recortado
-    # Se cuenta el número de archivos .fits ya presentes y se suma 1
+    # Generate a sequential name based on the number of existing recut files.
     count = len(glob.glob(os.path.join(dest_dir_abs, "*.fits"))) + 1
     unique_filename = f"{count}_{name}.fits"
     dest_file = os.path.join(dest_dir_abs, unique_filename)
-    shutil.move(cutout_file_abs, dest_file)# Mover el archivo recortado al directorio de destino
-
+    
+    shutil.move(cutout_file_abs, dest_file)
+    
     try:
         os.remove(input_file)
         print(f"Imagen {input_file} borrada exitosamente.")
     except OSError as e:
-        print(f"Error al borrar la imagen {input_file}: {e}") # Borrar el archivo original utilizado para el recorte
+        print(f"Error al borrar la imagen {input_file}: {e}")
+    
     print(f"Imagen recortada guardada en: {dest_file}")
-    return verdad,dest_file
+    return verdad
 def is_in_pic(w, image, ra, dec):
     '''
      Funcion que ajusta los objetos del catalogo a solo aquellos que podr�an estar en la im�gen
@@ -286,7 +300,7 @@ def Photometry_Data_Table(rutas,fits_name, fits_path, catalogo, r, r_in, r_out, 
   Obj = open(nombre_fits_out, "r")
   ListObj = Obj.readlines()
   Obj.close()
-  arch.mover_objeto(ruta_fits_out,rutas['fits_out'])
+  arch.mover_objeto(ruta_fits_out,rutas['fits_out'],rutas)
   Final_LO = []
   for i in ListObj:
     Final_LO.append(i.split()[:5])
@@ -525,7 +539,7 @@ def interseccionFiltros(focus_object,filtro_final):
   return filtro_final
 # Module-level helper function (do not nest this inside creacionTablasFotometricas)
 
-def creacionTablasFotometricas(rutas):
+def creacionTablasFotometricas(rutas,estrella):
   '''
   Esta función crea los datos de todas las fotos que se encuentran en imagenes cortadas. Realizando la fotometría para todas las fotos *.fits
   '''
@@ -533,8 +547,9 @@ def creacionTablasFotometricas(rutas):
   # Busqueda de los archivos .fits
   archivos = glob.glob(rutas['imagenes_cortadas'] + '*.fits')
   #Definición de catalogos
-  nombres = cantidad_de_fits(archivos,rutas)      
-  ra,dec,id = lectura_de_catalogo(rutas['archivo_catalogo'])
+  nombres = cantidad_de_fits(archivos,rutas) 
+  nombre_archivo_csv = f"{estrella}_datos_gaiaedr.csv"     
+  ra,dec,id = lectura_de_catalogo(rutas['archivo_catalogo']+nombre_archivo_csv)
   catalogo_decimal = SkyCoord(ra, dec, unit=( u.degree))
   catalogo = list(zip(catalogo_decimal.ra.deg,catalogo_decimal.dec.deg,id))
   # Definición de parámetros fotométricos #
@@ -554,74 +569,122 @@ def creacionTablasFotometricas(rutas):
     if photom is not None:
       all_tables.append(photom)
   return(all_tables)
-def curvas_de_luz_estrella(rutas):
-    nombre_carpeta = "csv_out"
+def creacion_periodograma(fechas_clean,flujos):
+  '''
+  Crea el peridograma de los datos ingresados con scipy
+  
+  '''
+  # 🔹 Tus datos (Asegura que time tiene unidades)
+  time = np.array(fechas_clean) * u.day  # Convierte a unidades de días
+  flux = np.array(flujos)        
 
-    # Obtiene el directorio actual de trabajo y cambia al directorio csv_out si es necesario
+  # 🔹 Definir el rango de frecuencias
+  min_period = 0.1 * u.day  
+  max_period = 10 * u.day  
+  frequency = np.linspace(1/max_period, 1/min_period, 10000)  
+
+  # 🔹 Calcular el periodograma
+  ls = LombScargle(time, flux)
+  power = ls.power(frequency)
+
+  # 🔹 Encontrar el período dominante
+  best_frequency = frequency[np.argmax(power)]
+  best_period = 1 / best_frequency
+  print(f"mejor frecuencia:{best_frequency}")
+  print(f"mejor periodo{best_period}")
+  # 🔹 Graficar
+  plt.figure(figsize=(8, 5))
+  plt.plot(1/frequency, power, color="cyan", linewidth=2)
+  plt.axvline(best_period.value, color="red", linestyle="--", label=f"Periodo: {best_period:.5f} días")
+  plt.xlabel("Período (días)", fontsize=12)
+  plt.ylabel("Potencia", fontsize=12)
+  plt.xscale("log")
+  plt.legend(f" Periodo más significativo: {best_period:.5f}")
+  plt.title("Periodograma Lomb-Scargle", fontsize=14)
+  plt.grid(True, linestyle="--", alpha=0.6)
+  plt.savefig("Periodograma algol")
+  
+def curvas_de_luz_estrella(rutas, estrella, id_estrella):
+    nombre_carpeta = "csv_out/"
+  
+    # Change to the csv_out directory if not already there.
     directorio = os.getcwd()
-    if os.path.basename(directorio) != nombre_carpeta:
+    if os.path.basename(directorio) != "csv_out":
         os.chdir(rutas['csv_out'])
+
     global tiempo
     global magnitud
     fechas = []
     magnitudes = []
   
-    magnitud = magnitudes
-    # Itera por todos los archivos en el directorio actual (csv_out)
-    for archivo in os.listdir(ru.route):
+    # Iterate over all CSV files in the current directory.
+    for archivo in os.listdir("."):
         if archivo.endswith(".csv"):
             with open(archivo, mode='r', newline='', encoding='utf-8') as archivo_csv:
                 lector = csv.reader(archivo_csv)
-                # Iterar sobre las filas del CSV
+                # Iterate over rows in the CSV.
                 for fila in lector:
-                    # Si el primer campo coincide con el id especificado, extrae la fecha y magnitud
+                    # Compare the first field (ID) after stripping and lowering both sides.
                     if fila[0] == '239863001382455424':
-                        fechas.append(fila[5])
-                        magnitudes.append(float(fila[3]))
+                        fechas.append(fila[5].strip())
+                        try:
+                            magnitudes.append(float(fila[3]))
+                        except ValueError:
+                            print(f"Error converting magnitude: {fila[3]}")
+    
     tiempo = fechas
     print(f"Datos agregados correctamente, actualmente se cuenta con {len(magnitudes)} datos")
     
-    # Regresa al directorio padre
+    # Return to the parent directory.
     os.chdir("..")
+    
+    # Convert the date strings to Julian dates.
     fechas_clean = [Time(f, format='isot', scale='utc').jd for f in tiempo]
-    fechas_clean_2 = [datetime.strptime(f, "%Y-%m-%dT%H:%M:%S.%f") for f in tiempo]
     
-    flujos=[]
-    for i in magnitud:
-        flujos.append(10**(-i/2.5))
+    # Calculate flux values.
+    flujos = [10**(-m/2.5) for m in magnitudes]
+    datos = pd.DataFrame({
+        'Fecha': fechas_clean,
+        'Flujos': flujos
+    })
     
+    # Filter rows with flux greater than 0.04.
+    filtered_datos = datos[datos['Flujos'] > 0.04]
+
     plt.rcParams.update({
-        'axes.facecolor': '#121212',  # Fondo del área del gráfico (gris oscuro)
-        'figure.facecolor': '#121212',  # Fondo de la figura (gris oscuro)
-        'font.size': 10 ,  # Tamaño de la fuente
-        'axes.labelcolor': 'white',  # Color de las etiquetas de los ejes (blanco)
-        'xtick.color': 'white',  # Color de las etiquetas en el eje X (blanco)
-        'ytick.color': 'white',  # Color de las etiquetas en el eje Y (blanco)
-        'axes.edgecolor': 'white',  # Color de los bordes del gráfico (blanco)
-        'grid.color': '#404040',  # Color de la cuadrícula (gris claro)
-        'grid.linestyle': '--',  # Estilo de la cuadrícula (líneas discontinuas)
-        'grid.alpha': 0.3,  # Transparencia de la cuadrícula (más suave)
-        'lines.color': 'cyan',  # Color de las líneas (cian brillante)
-        'lines.linewidth': 2,  # Ancho de las líneas
-        'axes.titlecolor': 'white',  # Color del título de los ejes (blanco)
+        'axes.facecolor': '#121212',
+        'figure.facecolor': '#121212',
+        'font.size': 10,
+        'axes.labelcolor': 'white',
+        'xtick.color': 'white',
+        'ytick.color': 'white',
+        'axes.edgecolor': 'white',
+        'grid.color': '#404040',
+        'grid.linestyle': '--',
+        'grid.alpha': 0.3,
+        'lines.color': 'cyan',
+        'lines.linewidth': 2,
+        'axes.titlecolor': 'white',
     })
 
-    alto,ancho=4,8
+    alto, ancho = 4, 8
     plt.figure(figsize=(ancho, alto))  
-    plt.scatter(fechas_clean[:], flujos[:], linewidth=1)
-    plt.xlabel("Tiempo Juliano",fontsize=10,labelpad=20)
-    plt.ylabel("Flujo",fontsize=10,labelpad=20) 
-    plt.title("----------------Curva de luz para algol----------------".upper(), fontsize=10,pad=10)
+    plt.scatter(filtered_datos['Fecha'], filtered_datos['Flujos'], linewidth=1)
+    plt.xlabel("Tiempo Juliano", fontsize=10, labelpad=20)
+    plt.ylabel("Flujo", fontsize=10, labelpad=20) 
+    plt.title(("----------------Curva de luz para " + estrella + "----------------").upper(), fontsize=10, pad=10)
+    plt.grid()
     plt.savefig("figura.png")
-def rutina_astrometica(rutas,estrella):
+    creacion_periodograma(fechas_clean,flujos)
+def rutina_astrometica(rutas,estrella,id_estrella):
 
-  array_de_tablas = creacionTablasFotometricas(rutas)
+  array_de_tablas = creacionTablasFotometricas(rutas,estrella)
   focus_object,filtro_final = adicionFiltros(array_de_tablas)
   filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
   creacionTablasCsv(filtro_resultado,rutas,estrella)
-  arch.mover_objetos(".fits.out",rutas['fits_out'])
+  arch.mover_objetos(".fits.out",rutas['fits_out'],rutas)
   
-  curvas_de_luz_estrella(rutas)#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
+  curvas_de_luz_estrella(rutas,estrella,id_estrella)#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
 def is_gaia_database_fallen():
     server_status = "Server is up"
     try:

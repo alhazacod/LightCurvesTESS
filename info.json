@@ -1,1 +1,17 @@
-{"start": 136}
+{
+    "algol": {
+        "name": "algol",
+        "start_line": 0,
+        "id": ""
+    },
+    "mu eridani": {
+        "name": "mu eridani",
+        "start_line": 33,
+        "id": ""
+    },
+    "v1241 tau": {
+        "name": "v1241 tau",
+        "start_line": 41,
+        "id": ""
+    }
+}

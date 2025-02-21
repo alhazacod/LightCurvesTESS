@@ -12,6 +12,7 @@ sudo pip install pandas
 sudo pip install numpy
 sudo pip install seaborn
 sudo pip install scipy
+sudo pip install requests
 ## Para pip3
 #sudo pip3 install rich
 #sudo pip3 install photutils
@@ -22,3 +23,4 @@ sudo pip install scipy
 #sudo pip3 install scipy
 #sudo pip3 install numpy
 #sudo pip3 install seaborn
+#sudo pip3 install requests
