@@ -39,6 +39,8 @@ from astropy.table.table import QTable
 from astropy.coordinates import SkyCoord
 from astropy.stats import sigma_clipped_stats
 from astropy.timeseries import LombScargle
+from celerite import terms
+from phoebe import u
 from astropy.time import Time
 from astropy import units as u
 from datetime import datetime
@@ -56,6 +58,11 @@ import subprocess
 import glob
 import shutil
 import time
+import phoebe
+import celerite
+import emcee
+from celerite2 import terms
+from celerite import terms
 class Star:
     def __init__(self, name_estrella, threshold):
         self._name_estrella = name_estrella
@@ -122,15 +129,19 @@ def query_gaia(coordinates, radius_arcmin=1):
 def gaia_ids(estrella):
     Simbad.add_votable_fields("ids")
     result = Simbad.query_object(estrella)
-    if result is not None:
+    if result is not None and len(result) > 0 :
         ids = result["ids"][0].split("|")
+      
         for id_ in ids:
             if "Gaia DR2" in id_:
                 global gaia_id
                 gaia_id = int(id_.replace("Gaia DR2 ", ""))
-                print(f"🔍 Gaia DR2 ID de {estrella}: {gaia_id}")        
+                print(f"🔍 Gaia DR2 ID de {estrella}: {gaia_id}")  
+                return True  
+                
     else:
-        return f"No se encontró el objeto '{estrella}' en Simbad."
+        print(f"No se encontró el objeto '{estrella}' en Simbad.")
+        return False
 def get_coordinates_from_name(name):
     """
     Obtiene las coordenadas RA y DEC de un objeto por su nombre usando Simbad, 
@@ -291,8 +302,9 @@ def Photometry_Data_Table(rutas,fits_name, fits_path, catalogo, r, r_in, r_out, 
   print(f'\n Se han encontrado {object_counter} objetos del catalogo en el archivo .fits \n')
 
   if object_counter == 0:
+    print(f"⚠️ No objects found in {fits_name}, skipping this image.")
     return None
-    quit()
+
 
 # Se guardan las coordenadas de los objetos de cat�logo que est�n en la im�gen
   nombre_fits_out = f"Objectlist_{fits_name}.out"
@@ -327,13 +339,13 @@ def Photometry_Data_Table(rutas,fits_name, fits_path, catalogo, r, r_in, r_out, 
         ID[i] = ID[i] + str(m)
 
 # Se imprime en consola una previsualizacion de como es el nuevo catalogo reducido.
-  #np.set_printoptions(suppress=True, formatter={'float_kind':'{:f}'    .format})
-  #print(f"\nSu catalogo reducido es (filas {len(Final_List)}):\n ")
-  #print("----RA---- ---DEC--- -----x-----  -----y----- -----ID-------\n")
-  #print(Final_List[0],ID[0])
-  #print("    ...       ...         ...          ...         ...        \n")
-  #print(Final_List[len(Final_List)-1],ID[len(Final_List)-1])
-  #print("---------- --------- ------------  ----------- -------------\n")
+  np.set_printoptions(suppress=True, formatter={'float_kind':'{:f}'    .format})
+  print(f"\nSu catalogo reducido es (filas {len(Final_List)}):\n ")
+  print("----RA---- ---DEC--- -----x-----  -----y----- -----ID-------\n")
+  print(Final_List[0],ID[0])
+  print("    ...       ...         ...          ...         ...        \n")
+  print(Final_List[len(Final_List)-1],ID[len(Final_List)-1])
+  print("---------- --------- ------------  ----------- -------------\n")
 
 # Se extraen los valores X y Y
   _, _, x_init, y_init = zip(*Final_List)
@@ -353,7 +365,17 @@ def Photometry_Data_Table(rutas,fits_name, fits_path, catalogo, r, r_in, r_out, 
 
 # Centroides de coordenadas de las estrellas 
   starloc = list(zip(x,y))
-#print(starloc)
+  if isinstance(starloc, np.ma.MaskedArray):
+    starloc = starloc.filled(np.nan)  # Convert masked values to NaN
+
+  if np.isnan(starloc).any() or np.isinf(starloc).any():
+    raise ValueError(f"Invalid star location detected: {starloc}")
+  if len(starloc) == 0:
+    print(f"⚠️ No valid star positions found in {fits_name}, skipping this image.")
+    return None
+  print(starloc)
+  print(starloc, np.isnan(starloc).any(), np.isinf(starloc).any())
+  print(f"starloc type: {type(starloc)}, value: {starloc}")
  
   zmag = 20.4402281476
   
@@ -407,6 +429,7 @@ def Photometry_Data_Table(rutas,fits_name, fits_path, catalogo, r, r_in, r_out, 
   index_nan = np.argwhere(np.isnan(phot_table[name_mag + '_mag'].data)) 
   phot_table.remove_rows(index_nan)
   filas = len(phot_table)
+ 
   return phot_table   
 def cantidad_de_fits(archive,rutas):
   # Impresion de los archivos encontados y guardado de nombre del archivo en lista
@@ -539,36 +562,60 @@ def interseccionFiltros(focus_object,filtro_final):
   return filtro_final
 # Module-level helper function (do not nest this inside creacionTablasFotometricas)
 
-def creacionTablasFotometricas(rutas,estrella):
-  '''
-  Esta función crea los datos de todas las fotos que se encuentran en imagenes cortadas. Realizando la fotometría para todas las fotos *.fits
-  '''
 
-  # Busqueda de los archivos .fits
-  archivos = glob.glob(rutas['imagenes_cortadas'] + '*.fits')
-  #Definición de catalogos
-  nombres = cantidad_de_fits(archivos,rutas) 
-  nombre_archivo_csv = f"{estrella}_datos_gaiaedr.csv"     
-  ra,dec,id = lectura_de_catalogo(rutas['archivo_catalogo']+nombre_archivo_csv)
-  catalogo_decimal = SkyCoord(ra, dec, unit=( u.degree))
-  catalogo = list(zip(catalogo_decimal.ra.deg,catalogo_decimal.dec.deg,id))
-  # Definición de parámetros fotométricos #
-  r = 10 #Apertura en px
-  r_in = 12 #Radio interno anillo cielo
-  r_out = 14 #Radio externo
-  all_tables = []
-  valor_total = len(archivos)
-  for k in range(valor_total):
-    time.sleep(1)
-    subprocess.run("clear", shell=True, check=True, text=True)
-    print(f"se han analizado {k}/{valor_total} imagenes")
-    arch.barra_de_progreso(k,valor_total,"Analizando...","green")
-    fits_path = archivos[k]
-    fits_name = nombres[k]
-    photom = Photometry_Data_Table(rutas,fits_name, fits_path, catalogo, r=r, r_in=r_in, r_out=r_out, center_box_size=center_box_size)
-    if photom is not None:
-      all_tables.append(photom)
-  return(all_tables)
+def creacionTablasFotometricas(rutas, estrella):
+    """
+    Esta función crea los datos de todas las fotos que se encuentran en imagenes cortadas,
+    realizando la fotometría para todas las imágenes *.fits.
+    """
+
+    # Buscar archivos FITS
+    archivos = glob.glob(rutas['imagenes_cortadas'] + '*.fits')
+
+    # Definir nombres de los archivos FITS
+    nombres = cantidad_de_fits(archivos, rutas)
+
+    # Cargar catálogo de estrellas
+    nombre_archivo_csv = f"{estrella}_datos_gaiaedr.csv"
+    try:
+        ra, dec, id_estrella = lectura_de_catalogo(rutas['archivo_catalogo'] + nombre_archivo_csv)
+    except Exception as e:
+        print(f"❌ Error al leer el catálogo {nombre_archivo_csv}: {e}")
+        return []
+
+    catalogo_decimal = SkyCoord(ra, dec, unit=(u.degree))
+    catalogor = list(zip(catalogo_decimal.ra.deg, catalogo_decimal.dec.deg, id_estrella))
+
+    # Definir parámetros fotométricos
+    rr = 10      # Apertura en px
+    r_inr = 12   # Radio interno anillo cielo
+    r_outr = 14  # Radio externo
+    all_tables = []
+    valor_total = len(archivos)
+
+    # Iterar sobre todas las imágenes FITS
+    for k, (fits_pathr, fits_namer) in enumerate(zip(archivos, nombres)):
+        subprocess.run("clear", shell=True, check=True, text=True)
+        print(f"🔄 Procesando imagen {k+1}/{valor_total}: {fits_namer}")
+        arch.barra_de_progreso(k,valor_total,"Analizando...","green")
+        try:
+            photom = Photometry_Data_Table(
+                rutas, fits_namer, fits_pathr, catalogor,
+                r=rr, r_in=r_inr, r_out=r_outr, center_box_size=center_box_size
+            )
+
+            if photom is not None:
+                all_tables.append(photom)
+            else:
+                print(f"⚠️ Imagen {fits_namer} omitida (no se encontraron objetos válidos).")
+
+        except Exception as e:
+            print(f"❌ Error procesando {fits_namer}: {e}")
+
+    print(f"✅ Se completó la fotometría de {len(all_tables)} imágenes exitosamente.")
+    return all_tables
+
+
 def creacion_periodograma(fechas_clean,flujos):
   '''
   Crea el peridograma de los datos ingresados con scipy
@@ -625,7 +672,7 @@ def curvas_de_luz_estrella(rutas, estrella, id_estrella):
                 # Iterate over rows in the CSV.
                 for fila in lector:
                     # Compare the first field (ID) after stripping and lowering both sides.
-                    if fila[0] == '239863001382455424':
+                    if fila[0] == '3262756401298707584':
                         fechas.append(fila[5].strip())
                         try:
                             magnitudes.append(float(fila[3]))
@@ -649,8 +696,8 @@ def curvas_de_luz_estrella(rutas, estrella, id_estrella):
     })
     
     # Filter rows with flux greater than 0.04.
-    filtered_datos = datos[datos['Flujos'] > 0.04]
-
+    #filtered_datos = datos[(datos['Fecha'] > 10) & (datos['Fecha'] < 18)]
+    filtered_datos = datos
     plt.rcParams.update({
         'axes.facecolor': '#121212',
         'figure.facecolor': '#121212',
@@ -666,7 +713,17 @@ def curvas_de_luz_estrella(rutas, estrella, id_estrella):
         'lines.linewidth': 2,
         'axes.titlecolor': 'white',
     })
-
+    # Initialize a bundle
+    times = np.array(datos['Fecha'])
+    fluxes = np.array(datos['Flujos'])
+    b = phoebe.default_binary()
+    b.add_dataset('lc', times=times, fluxes=fluxes, dataset='lc01')
+    kernel = terms.SHOTerm(log_S0=0, log_omega0=0, log_Q=0)
+    b.add_gaussian_process(dataset='lc01', kernel=kernel)
+    b.run_compute()
+    
+    afig, mplfig = b.plot(show=True)
+    mplfig.savefig("phoebe_gp_light_curve.png")
     alto, ancho = 4, 8
     plt.figure(figsize=(ancho, alto))  
     plt.scatter(filtered_datos['Fecha'], filtered_datos['Flujos'], linewidth=1)
@@ -674,7 +731,7 @@ def curvas_de_luz_estrella(rutas, estrella, id_estrella):
     plt.ylabel("Flujo", fontsize=10, labelpad=20) 
     plt.title(("----------------Curva de luz para " + estrella + "----------------").upper(), fontsize=10, pad=10)
     plt.grid()
-    plt.savefig("figura.png")
+    plt.savefig("figura2.png")
     creacion_periodograma(fechas_clean,flujos)
 def rutina_astrometica(rutas,estrella,id_estrella):
 

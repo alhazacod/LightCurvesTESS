@@ -3,16 +3,16 @@
 #Se debe contar con python
 
 #En caso de no tener pip3 sino pip
-sudo pip install rich 
-sudo pip install photutils
-sudo pip install astrocut 
-sudo pip install astroquery
-sudo pip install astropy
-sudo pip install pandas
-sudo pip install numpy
-sudo pip install seaborn
-sudo pip install scipy
-sudo pip install requests
+sudo apt install python3-rich 
+sudo apt install python3-photutils
+sudo apt install python3-astrocut 
+sudo apt install python3-astroquery
+sudo apt install python3-astropy
+sudo apt install python3-pandas
+sudo apt install python3-numpy
+sudo apt install python3-seaborn
+sudo apt install python3-scipy
+sudo apt install python3-requests
 ## Para pip3
 #sudo pip3 install rich
 #sudo pip3 install photutils

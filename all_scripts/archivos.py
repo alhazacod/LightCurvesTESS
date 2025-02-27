@@ -84,9 +84,7 @@ def barra_de_progreso(actual,valor_total,texto_de_barra="Donwloading...",color="
                 task = progress.add_task(texto_barra_completo, total=valor_total)
                 # Update the task to reflect the current count.
                 progress.update(task, completed=actual)
-                # Brief pause to allow the progress bar to be visible.
-                import time
-                time.sleep(0.5)       
+               
 #Necesitan crear un json por estrella o almacenar en el json por estrellas así algol: info , beetlejuice: info 
 def ensure_star_json(info_json, star):
     """
@@ -229,7 +227,7 @@ def total_de_lineas(ruta_archivo):
         print(f"Ocurrió un error: {e}")
         return 0
    
-def actualizar_progreso(value,rutas,info_json,estrella):
+def actualizar_progreso(value,rutas,info_json,estrella,i):
     """
     Cuanto el numero de .fits en el directorio'imagenes cortadas'
     Si 'value' es True, muestra la barra de progreso unsando la función barra_de_progreso(valor_actual,valor_total)
@@ -240,45 +238,56 @@ def actualizar_progreso(value,rutas,info_json,estrella):
     total = total_de_lineas(ruta_archivo_curl)
     if value:
         subprocess.run("clear", shell=True, check=True, text=True)
-        print(f"van {current} imagenes que contiene a la estrella")
-        barra_de_progreso(start_line,total,modo = 1)
+        print(f"van {current} imagenes que contiene a {estrella}")
+        barra_de_progreso(i,total,modo = 1)
     return current
+import subprocess
 
-def secuencia_de_descarga_y_recorte(coordenadas, i, linea, info_json, rutas, estrella):
+def descargar_imagen(info_json, estrella, linea, i, directorio_destino, rutas):
     """
-    Executes a single curl command (line) using the directory specified in rutas.
-    It updates the JSON file with the current line index, downloads the image to
-    rutas['imagenes'], and then processes the downloaded image by calling astrom.cortarImagen.
+    Esta función descarga una imagen y actualiza el JSON solo si la descarga es exitosa.
     """
-    directorio_destino = rutas['imagenes']  # Download directory from rutas
-    print(f"Executing curl command at line {i}: {linea}")
-    
-    actualizar_progreso(True, rutas, info_json,estrella)
     try:
-        # Brief pause and update JSON before executing the command
-        time.sleep(1)
-        update_json(info_json,estrella, i)
-        # Run the curl command; cwd is set to rutas['imagenes'] so that the file downloads there.
+        # Ejecutar el comando de descarga con check=True para capturar errores
         subprocess.run(f"{linea} -o {directorio_destino}", shell=True, 
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, 
-                       cwd=rutas['imagenes'])
-    except subprocess.CalledProcessError as e:
-        print(f"Error executing line {i}: {linea}. Error: {e}")
-        return
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, 
+                                cwd=rutas['imagenes'], check=True)
 
-    actualizar_progreso(True, rutas, info_json,estrella)
-    # Look for the downloaded files in the correct directory.
+        # Si la ejecución fue exitosa (sin excepciones), actualizar el JSON
+        update_json(info_json, estrella, i)
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error ejecutando línea {i}: {linea}. Error: {e}")
+
+def recortar_imagenes(info_json,i,coordenadas,estrella,rutas):
+    '''
+    La función recortar_imagenes se encarga de recortar todas las imagenes que encuentre en el directorio de imagenes de la respectiva estrella y almacenarlas en el directorio de imagenes cortadas
+
+    '''
+     # Look for the downloaded files in the correct directory.
     fits_files = glob.glob(os.path.join(rutas['imagenes'], "*.fits"))
     for individual_file in fits_files:
         match = astrom.cortarImagen(coordenadas, individual_file, rutas, estrella)
         if match:
-            value = actualizar_progreso(False, rutas, info_json,estrella)
+            value = actualizar_progreso(False, rutas, info_json,estrella,i)
             if value >= threshold:
                 break
             try:
                 update_json(info_json,estrella, i)
             except Exception as e:
                 print(f"Error updating {info_json}: {e}")
+def secuencia_de_descarga_y_recorte(coordenadas, i, linea, info_json, rutas, estrella):
+    """
+    Actualiza el progreso, descarga una imagen y luego recorta la imagen.(Esta función dejara de existir)
+    """
+    directorio_destino = rutas['imagenes']  # Download directory from rutas
+    print(f"Executing curl command at line {i}: {linea}")
+    
+    actualizar_progreso(True, rutas, info_json,estrella,i)
+    descargar_imagen(info_json,estrella,linea,i,directorio_destino,rutas)
+    actualizar_progreso(True, rutas, info_json,estrella,i)
+    recortar_imagenes(info_json,i,coordenadas,estrella,rutas)
+   
 def ejecutar_curl_desde_archivo(rutas,estrella):
     """Executes curl commands from a file, resuming from the last recorded line."""
     imagenes_cortadas = rutas['imagenes_cortadas']
@@ -303,7 +312,7 @@ def ejecutar_curl_desde_archivo(rutas,estrella):
 
                     linea = linea.strip()
                     secuencia_de_descarga_y_recorte(coordenadas, i, linea, info_json,rutas,estrella)
-
+#Para poder paralelizar hagamos que la función secuencia_de_descarga_y_recorte() retorne la variable i, actualizando la posición del curl.
         except FileNotFoundError:
             print(f"Error: The file {archivo_sh} was not found.")
     else:

@@ -1,17 +1,17 @@
 {
     "algol": {
         "name": "algol",
-        "start_line": 0,
+        "start_line": 4,
         "id": ""
     },
     "mu eridani": {
         "name": "mu eridani",
-        "start_line": 33,
+        "start_line": 9602,
         "id": ""
     },
     "v1241 tau": {
         "name": "v1241 tau",
-        "start_line": 41,
+        "start_line": 6984,
         "id": ""
     }
 }
