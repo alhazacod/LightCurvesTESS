@@ -714,16 +714,16 @@ def curvas_de_luz_estrella(rutas, estrella, id_estrella):
         'axes.titlecolor': 'white',
     })
     # Initialize a bundle
-    times = np.array(datos['Fecha'])
-    fluxes = np.array(datos['Flujos'])
-    b = phoebe.default_binary()
-    b.add_dataset('lc', times=times, fluxes=fluxes, dataset='lc01')
-    kernel = terms.SHOTerm(log_S0=0, log_omega0=0, log_Q=0)
-    b.add_gaussian_process(dataset='lc01', kernel=kernel)
-    b.run_compute()
+    #times = np.array(datos['Fecha'])
+    #fluxes = np.array(datos['Flujos'])
+    #b = phoebe.default_binary()
+    #b.add_dataset('lc', times=times, fluxes=fluxes, dataset='lc01')
+    #kernel = terms.SHOTerm(log_S0=0, log_omega0=0, log_Q=0)
+    #b.add_gaussian_process(dataset='lc01', kernel=kernel)
+    #b.run_compute()
     
-    afig, mplfig = b.plot(show=True)
-    mplfig.savefig("phoebe_gp_light_curve.png")
+   # afig, mplfig = b.plot(show=True)
+    #mplfig.savefig("phoebe_gp_light_curve.png")
     alto, ancho = 4, 8
     plt.figure(figsize=(ancho, alto))  
     plt.scatter(filtered_datos['Fecha'], filtered_datos['Flujos'], linewidth=1)

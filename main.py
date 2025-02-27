@@ -17,6 +17,7 @@ if __name__ == "__main__":
 
                 arch.ensure_star_json(info_json,estrella_valor)
                 rutas= ru.definicion_rutas_por_estrella(estrella_valor)
+                id_estrella = "3225773709223070464"
                 print(f"Bienvenido al programa para encontrar las curvas de luz de {estrella_valor}")
                 print(" ")
                 print("a continuación debes seleccionar una de las dos opciones")
