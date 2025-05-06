@@ -39,17 +39,15 @@ from astropy.table.table import QTable
 from astropy.coordinates import SkyCoord
 from astropy.stats import sigma_clipped_stats
 from astropy.timeseries import LombScargle
-from celerite import terms
 from phoebe import u
 from astropy.time import Time
 from astropy import units as u
 from datetime import datetime
 from rich.progress import Progress
-import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
-from all_scripts import archivos as arch
-from all_scripts import todas_las_rutas as ru
+from all_scripts import files
+from all_scripts import all_paths as paths
 import pandas as pd
 import numpy as np
 import os
@@ -59,10 +57,7 @@ import glob
 import shutil
 import time
 import phoebe
-import celerite
-import emcee
-from celerite2 import terms
-from celerite import terms
+
 class Star:
     def __init__(self, name_estrella, threshold):
         self._name_estrella = name_estrella
@@ -106,7 +101,7 @@ def save_to_csv(rutas,estrella):
     data.to_csv(nombre_archivo,index = False, header=False,sep=" ")
     rows, columns = data.shape
     print(f"Numero de filas: {rows}, Numero de columnas: {columns}")
-    arch.mover_objeto(nombre_archivo,directorio,rutas)
+    files.mover_objeto(nombre_archivo,directorio,rutas)
 #Se define la función que toma las coordenadas y hace el query en gaia
 def query_gaia(coordinates, radius_arcmin=1):
     ra = coordinates['recta ascencion']   # RA en horas/minutos/segundos (o grados, según la salida de SIMBAD)
@@ -308,11 +303,11 @@ def Photometry_Data_Table(rutas,fits_name, fits_path, catalogo, r, r_in, r_out, 
 
 # Se guardan las coordenadas de los objetos de cat�logo que est�n en la im�gen
   nombre_fits_out = f"Objectlist_{fits_name}.out"
-  ruta_fits_out =ru.route+nombre_fits_out
+  ruta_fits_out =paths.route+nombre_fits_out
   Obj = open(nombre_fits_out, "r")
   ListObj = Obj.readlines()
   Obj.close()
-  arch.mover_objeto(ruta_fits_out,rutas['fits_out'],rutas)
+  files.mover_objeto(ruta_fits_out,rutas['fits_out'],rutas)
   Final_LO = []
   for i in ListObj:
     Final_LO.append(i.split()[:5])
@@ -531,7 +526,7 @@ def creacionTablasCsv(filtro_final,rutas,estrella):
     estrella_csv = f"{estrella}_{foc}.csv"
     estrella_csv_ruta = f"{rutas['csv_out']}{estrella}_{foc}.csv"
     final_obs_table.write(estrella_csv_ruta, overwrite=True) 
-    #arch.mover_objeto(estrella_csv,rutas['csv_out'])   
+    #files.mover_objeto(estrella_csv,rutas['csv_out'])   
 def interseccionFiltros(focus_object,filtro_final):
   '''
   Esta función se encarga de realizar la intersección de los objetos que estan en los tres filtros, al terminar elimina los datos por fuera de los tres libros y elimina las tablas vacias pertenecientes a allTables
@@ -651,7 +646,7 @@ def creacion_periodograma(fechas_clean,flujos):
   plt.grid(True, linestyle="--", alpha=0.6)
   plt.savefig("Periodograma algol")
   
-def curvas_de_luz_estrella(rutas, estrella, id_estrella):
+def light_curves_star(rutas, estrella, id_estrella):
     nombre_carpeta = "csv_out/"
   
     # Change to the csv_out directory if not already there.
@@ -733,13 +728,13 @@ def curvas_de_luz_estrella(rutas, estrella, id_estrella):
     plt.grid()
     plt.savefig("figura2.png")
     creacion_periodograma(fechas_clean,flujos)
-def rutina_astrometica(rutas,estrella,id_estrella):
+def astrometric_routine(rutas,estrella,id_estrella):
 
   array_de_tablas = creacionTablasFotometricas(rutas,estrella)
   focus_object,filtro_final = adicionFiltros(array_de_tablas)
   filtro_resultado = interseccionFiltros(focus_object,filtro_final)     
   creacionTablasCsv(filtro_resultado,rutas,estrella)
-  arch.mover_objetos(".fits.out",rutas['fits_out'],rutas)
+  files.mover_objetos(".fits.out",rutas['fits_out'],rutas)
   
   curvas_de_luz_estrella(rutas,estrella,id_estrella)#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
 def is_gaia_database_fallen():

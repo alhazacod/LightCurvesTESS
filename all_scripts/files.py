@@ -1,5 +1,5 @@
-from all_scripts import astrometria as astrom
-from all_scripts import todas_las_rutas as ru
+from all_scripts import astrometry as astrom
+from all_scripts import all_paths as paths
 from astroquery.mast import Tesscut
 from rich.live import Live
 from rich.console import Console
@@ -18,11 +18,11 @@ import time
 import re
 
 # Variable global para la ruta principal de la organización de carpetas
-#route = ru.route
-#imagenes = ru.imagenes
-#imagenes_cortadas = ru.imagenes_cortadas
-#archivo_catalogo = ru.archivo_catalogo
-#bash_scripts = ru.bash_scripts
+#route = paths.route
+#imagenes = paths.imagenes
+#imagenes_cortadas = paths.imagenes_cortadas
+#archivo_catalogo = paths.archivo_catalogo
+#bash_scripts = paths.bash_scripts
 threshold = 1500#variable para cambiar la cantidad de recortes que se guardan
 
 def mover_objeto(nombre_de_archivo, directorio_de_destino,rutas):
@@ -139,7 +139,7 @@ def ejecutar_sh(archivo_a_ejecutar):
 
 
 #Estas funciones requieren rutas 
-def definir_sector(rutas,star):
+def define_sector(rutas,star):
     print(f"Para el objeto {star} se tienen los sectores:")
     sectors = Tesscut.get_sectors(objectname=star)
     print(f"\n{sectors}\n")
@@ -175,7 +175,7 @@ def contar_fits(rutas):
     return len(glob.glob(rutas['imagenes_cortadas'] + "/*.fits"))
   
 
-def organizar_comandos_por_fecha(rutas,star,sector_seleccionado,output_filename="comandos_curl_ordenados.txt"):
+def organize_commands_by_date(rutas,star,sector_seleccionado,output_filename="comandos_curl_ordenados.txt"):
     """
     Lee el archivo de comandos curl, extrae la parte numérica que representa la fecha
     (de la forma "-o tess<FECHA>-...") y organiza los comandos en orden ascendente según esa fecha.
@@ -212,8 +212,9 @@ def organizar_comandos_por_fecha(rutas,star,sector_seleccionado,output_filename=
         f.write("#!/bin/sh\n")
         for comando in comandos_ordenados:
             f.write(comando + "\n")
-    mover_objeto(ru.route+output_filename,rutas['bash_scripts'],rutas)
+    mover_objeto(paths.route+output_filename,rutas['bash_scripts'],rutas)
     print(f"Comandos organizados por fecha y guardados en {output_filename}")
+
 def total_de_lineas(ruta_archivo):
     try:
         with open(ruta_archivo, 'r', encoding='utf-8') as archivo:
@@ -288,7 +289,7 @@ def secuencia_de_descarga_y_recorte(coordenadas, i, linea, info_json, rutas, est
     actualizar_progreso(True, rutas, info_json,estrella,i)
     recortar_imagenes(info_json,i,coordenadas,estrella,rutas)
    
-def ejecutar_curl_desde_archivo(rutas,estrella):
+def run_curl_from_file(rutas,estrella):
     """Executes curl commands from a file, resuming from the last recorded line."""
     imagenes_cortadas = rutas['imagenes_cortadas']
     coordenadas = astrom.get_coordinates_from_name(estrella)
