@@ -736,7 +736,7 @@ def astrometric_routine(rutas,estrella,id_estrella):
   creacionTablasCsv(filtro_resultado,rutas,estrella)
   files.mover_objetos(".fits.out",rutas['fits_out'],rutas)
   
-  curvas_de_luz_estrella(rutas,estrella,id_estrella)#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
+  light_curves_star(rutas,estrella,id_estrella)#Si esta la estrella deseada  en los datos se crea un nuevo .csv con los datos de algol 
 def is_gaia_database_fallen():
     server_status = "Server is up"
     try:
