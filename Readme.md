@@ -1,104 +1,19 @@
-# Proyecto de Fotometría de Imágenes TESS
+# Project Moved & Rewritten
 
-## Descripción del Código
+⚠️ **This repository is archived.** ⚠️
 
-Este proyecto automatiza el procesamiento de imágenes tomadas por TESS. El flujo de trabajo se centra en definir variables y ejecutar `main.py`, el cual coordina todo el proceso. Las principales tareas del proyecto son:
+The project that was once developed here has been completely rewritten from scratch as a standalone Python library.
 
-- **Descargar** imágenes (archivos FITS) mediante comandos `curl` definidos en un archivo de texto.
-- **Recortar** cada imagen para enfocar únicamente en una estrella de interés (por ejemplo, Algol), utilizando el script `recortes.py`.
-- **Consultar** el catálogo de Gaia (con ayuda de SIMBAD) para obtener objetos circundantes y generar un archivo CSV con dicha información.
-- **Realizar fotometría** en cada imagen recortada para extraer datos instrumentales y compararlos con el catálogo.
-- **Generar Curvas de Luz:** Con los datos obtenidos se produce la gráfica de la curva de luz de la estrella en cuestión.
+## **➡️ Go to the new repository: [coltess](https://github.com/alhazacod/coltess)**
 
-## Proceso de Ejecución
+---
 
-1. **Generación del script de descarga y procesamiento:**
-   - Se ejecuta `main.py`, que coordina el proceso.
-   - Por ahora, la información se establece por defecto: la estrella es "algol" definida en main.py.
-   - Al ejecutar main.py se crea un directorio con nombre de la estrella donde se realizan todos los procesos de la estrella actual.
-   - Las curvas de luz se generan automáticamente y se guardan.
-   - Si la conexión a Internet es lenta, se recomienda usar un `threshold` menor, ya que la descarga de cada imagen puede demorar, entonces menos puntos es mejor para una latencia baja.
+### Why the move?
+*   **New Codebase:** The library was rewritten from the ground up.
+*   **New Purpose:** It is now a dedicated Python package named **coltess**.
+*   **Clean Slate:** The new repository contains only the final library code without the forked project's history.
 
-2. **Procesamiento de las imágenes:**
-   - Cada imagen descargada se verifica para ver si contiene la estrella de interés; si es así, se genera un recorte.
-   - Los recortes se guardan en la carpeta `imagenes_cortadas` (o `imagenes_guardadas`, según la configuración) y se elimina la imagen original para la respectiva estrella.
-   - La función `actualizar_progreso()` se invoca cada vez que se encuentra un match, mostrando mensajes de progreso (por ejemplo, "Progress: 100/1700 images descargadas y también cuenta el numero de imagenes encontradas que contienen a la estrella").
-   - Una vez descargadas todas las imagenes, el programa continúa con la siguiente fase.
-   - Cada vez que se ejecuta el programa, se lee desde la última línea que produjo un match (la línea se guarda en un archivo JSON). Para reiniciar la ejecución desde el principio, se debe cambiar el valor de `"start"` en el archivo `info.json`.
+### For Context (Original Fork)
+This repository was originally a fork of `AlejoProjects/curvasDeLuzAlgol-`.
 
-3. **Consulta al Catálogo Gaia:**
-   - Se consulta el catálogo Gaia (gaia2edr) para obtener objetos en un radio de 10 arcmin alrededor de la estrella de interés.
-   - Los datos obtenidos se almacenan en un archivo CSV que contiene la información de los objetos circundantes.
-
-4. **Fotometría y Análisis:**
-   - Para cada imagen se genera un CSV con los “match” entre los objetos detectados y los del catálogo Gaia.
-   - Con los recortes y el catálogo generado se ejecuta `rutina_astrometrica()`, la cual realiza la fotometría de cada imagen recortada, produce las tablas y extrae los datos para generar las curvas de luz.
-   - Los archivos resultantes se organizan en diferentes carpetas:
-     - `imagenes_cortadas`: imágenes recortadas que contienen la estrella.
-     - `datos_astrometria_modificados`: archivos CSV con datos fotométricos.
-     - `fits_out`: archivos `.fits.out` generados por la fotometría.
-     - `bash_scripts`: archivos `.txt` que contienen los archivos curl.
-
-## Requisitos Previos
-
-- **Archivo de Comandos:**  
-  Se requiere contar con el archivo `comandosCurl` que contiene los comandos `curl` necesarios para descargar las imágenes del sector.  
-  Accede a los datos desde:  
-  [TESS Bulk Downloads](https://archive.stsci.edu/tess/bulk_downloads/bulk_downloads_ffi-tp-lc-dv.html)
-
-- **Acceso a Internet:**  
-  El proyecto requiere conexión a internet para conectarse a la API de TESS y a los catálogos SIMBAD/Gaia.
-
-## Dependencias Necesarias
-
-- [**astrocut**](https://astrocut.readthedocs.io/en/latest/astrocut/index.html)
-- [**astropy**](https://www.astropy.org/)
-- [**seaborn**](https://seaborn.pydata.org/) *(o matplotlib, según preferencia)*
-- [**numpy**](https://numpy.org/)
-- [**matplotlib**](https://matplotlib.org/)
-- [**photutils**](https://photutils.readthedocs.io/en/stable/)
-- [**rich**](https://rich.readthedocs.io/) *(para la visualización avanzada en terminal)*
-- **Librerías estándar de Python:** `os`, `glob`, `shutil`, `subprocess`, `pandas`, `csv`
-
-## Descripción de los Scripts
-
-1. **main.py:**  
-   Contiene la ejecución de los comandos principales.  
-   - Lee el archivo JSON para retomar desde la última línea procesada.  
-   - Ejecuta el script modificado de descarga, que incluye comprobaciones de progreso y actualizaciones de la variable `"start"`.
-   - Finalmente, llama a la función de fotometría.
-
-2. **astrometria.py:**  
-   Contiene todas las funciones relacionadas con la astrometría y el procesamiento de imágenes, incluyendo:
-   - Recorte de imágenes (`recortes.py`).
-   - Consultas a SIMBAD y Gaia.
-   - Generación de tablas de fotometría y curvas de luz.
-
-3. **archivos.py:**  
-   Contiene funciones para el manejo y movimiento de archivos entre directorios.
-
-4. **limpieza.sh:**  
-   Script de shell que elimina archivos con extensiones `.csv`, `.fits` y `.fits.out` en el directorio principal para mantener el proyecto limpio.  
-   - Se recomienda ejecutar `chmod +x bash_scripts/limpieza.sh` para otorgar permisos de ejecución.
-
-5. **Otros archivos en `all_scripts`:**  
-   - **todas_las_rutas.py:** Define todas las rutas base del programa.
-   - **archivos.py:** Funciones enfocadas a la modificación y movimiento de archivos.
-   - **astrometria.py:** Funciones relacionadas con el análisis de imágenes y fotometría.
-
-## Ejecución del Proyecto
-
-Antes de iniciar el proceso principal, se recomienda ejecutar el script `instalacion_librerias.sh` para instalar todas las dependencias.
-
-Para iniciar el proceso, ejecuta:
-
-```bash
-python3 main.py
-
-```
-Escoge una de las opciones según el caso.
-## Mejoras a implementar 
- - Implementar codigo de request para descargar automáticamente los sectores según la estrella
- - Cambiar la función de get_json y call_json para que incluyan cada estrella creada y tengan las propiedades de cada estrella utilizando la clase estrella
- - Cuando se revisita el programa buscar en el json para saber si una extrella existe y mostrar las opciones disponibles de estrella o simplemente consultar la información de la respectiva estrella.
- - Crear una interfaz gráfica y/o generar el input para almacenar los valores de la clase estrella
+All ongoing development, issues, and pull requests have moved to the new **[coltess](https://github.com/alhazacod/coltess)** repository.
